@@ -7,14 +7,22 @@
 #include <pthread.h>
 #include "queue.h"
 
+int UDP_PORT;
+char LISTEN_UDP_IP[16];
+int DEST_UDP_PORT;
+char DEST_UDP_IP[16];
+int MAX_MESSAGE_SIZE;
+int BUFFER_SIZE;
+int MAX_THREADS;
+int MAX_QUEUE_SIZE;
 // Declare variables to hold constants
-int UDP_PORT = 8125;
-int DEST_UDP_PORT = 8127;
-char DEST_UDP_IP[16] = "127.0.0.1";
-int MAX_MESSAGE_SIZE = 2024;
-int BUFFER_SIZE = 2048;
-int MAX_THREADS = 15;
-int MAX_QUEUE_SIZE = 10000;
+//int UDP_PORT = 8125;
+//int DEST_UDP_PORT = 8127;
+//char DEST_UDP_IP[16] = "127.0.0.1";
+//int MAX_MESSAGE_SIZE = 2024;
+//int BUFFER_SIZE = 2048;
+//int MAX_THREADS = 15;
+//int MAX_QUEUE_SIZE = 10000;
 
 struct Stats {
     char key[256];
@@ -33,7 +41,34 @@ struct WorkerArgs {
 void *logging_thread(void *arg);
 void *worker_thread(void *arg);
 
+void read_config() {
+    FILE *fp = fopen("config.conf", "r");
+    if (fp == NULL) {
+        perror("Could not open config file");
+        exit(EXIT_FAILURE);
+    }
+
+    char line[256];
+    while (fgets(line, sizeof(line), fp)) {
+        char key[128];
+        char value[128];
+
+        sscanf(line, "%[^=]=%s", key, value);
+
+        if (strcmp(key, "UDP_PORT") == 0) UDP_PORT = atoi(value);
+        else if (strcmp(key, "DEST_UDP_PORT") == 0) DEST_UDP_PORT = atoi(value);
+        else if (strcmp(key, "DEST_UDP_IP") == 0) strncpy(DEST_UDP_IP, value, sizeof(DEST_UDP_IP));
+        else if (strcmp(key, "MAX_MESSAGE_SIZE") == 0) MAX_MESSAGE_SIZE = atoi(value);
+        else if (strcmp(key, "BUFFER_SIZE") == 0) BUFFER_SIZE = atoi(value);
+        else if (strcmp(key, "MAX_THREADS") == 0) MAX_THREADS = atoi(value);
+        else if (strcmp(key, "MAX_QUEUE_SIZE") == 0) MAX_QUEUE_SIZE = atoi(value);
+    }
+    fclose(fp);
+}
+
 int main() {
+    // Read config file
+    read_config();
     Queue *queue = initQueue(MAX_QUEUE_SIZE);
     int sharedUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -60,8 +95,18 @@ int main() {
     struct sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(UDP_PORT);
-    serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    //serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
+    if (strcmp(LISTEN_UDP_IP, "0.0.0.0") != 0) {
+        // Use the specified IP address
+        if (inet_pton(AF_INET, LISTEN_UDP_IP, &(serverAddr.sin_addr)) <= 0) {
+            perror("Invalid IP address");
+            exit(1);
+        }
+    } else {
+        serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    }
+    
     if (bind(udpSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
         perror("Bind failed");
         exit(EXIT_FAILURE);
