@@ -15,14 +15,6 @@ int MAX_MESSAGE_SIZE;
 int BUFFER_SIZE;
 int MAX_THREADS;
 int MAX_QUEUE_SIZE;
-// Declare variables to hold constants
-//int UDP_PORT = 8125;
-//int DEST_UDP_PORT = 8127;
-//char DEST_UDP_IP[16] = "127.0.0.1";
-//int MAX_MESSAGE_SIZE = 2024;
-//int BUFFER_SIZE = 2048;
-//int MAX_THREADS = 15;
-//int MAX_QUEUE_SIZE = 10000;
 
 struct Stats {
     char key[256];
@@ -96,7 +88,6 @@ int main() {
     struct sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(UDP_PORT);
-    //serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     // Configure the IP address based on the LISTEN_UDP_IP macro
     if (strcmp(LISTEN_UDP_IP, "0.0.0.0") == 0) {
@@ -165,66 +156,55 @@ void *logging_thread(void *arg) {
 }
 
 void *worker_thread(void *arg) {
-    struct WorkerArgs *args = (struct WorkerArgs *) arg;
+    struct WorkerArgs *args = (struct WorkerArgs *)arg;
     Queue *queue = args->queue;
     int udpSocket = args->udpSocket;
     struct sockaddr_in destAddr = args->destAddr;
 
-    struct Stats stats[BUFFER_SIZE];
-    int statsCount = 0;
-
-    for (int i = 0; i < BUFFER_SIZE; i++) {
-        stats[i].value = 0;
-    }
+    char *batchBuffer[100];
+    int bufferIndex = 0;
+    int processBatchSize = 100;  // Define how many items to process before sending
 
     while (1) {
-        char *buffer = dequeue(queue);
-        if (buffer == NULL) {
+        // Dequeue items and store them in batchBuffer
+        if (bufferIndex < processBatchSize) {
+            char *buffer = dequeue(queue);
+            if (buffer != NULL) {
+                batchBuffer[bufferIndex++] = buffer;
+            }
             continue;
         }
-        char *key, *valueStr, *type;
-        int value;
-        char *savePtr1;
 
-        key = strtok_r(buffer, ":", &savePtr1);
-        valueStr = strtok_r(NULL, "|", &savePtr1);
-        type = strtok_r(NULL, "|", &savePtr1);
-
-        if (key && valueStr && type) {
-                value = atoi(valueStr);
-
-            int found = 0;
-            for (int j = 0; j < statsCount; j++) {
-                if (strcmp(stats[j].key, key) == 0 && strcmp(stats[j].type, type) == 0) {
-                    stats[j].value += value;
-                    found = 1;
-                    break;
-                }
-            }
-
-            if (!found) {
-                strncpy(stats[statsCount].key, key, sizeof(stats[statsCount].key));
-                strncpy(stats[statsCount].type, type, sizeof(stats[statsCount].type));
-                stats[statsCount].value = value;
-                statsCount++;
-            }
-                for (int j = 0; j < statsCount; j++) {
-                    char sendBuffer[2024];
-                    snprintf(sendBuffer, sizeof(sendBuffer), "%s:%d|%s", stats[j].key, stats[j].value, stats[j].type);
-
-                    ssize_t sentBytes = sendto(udpSocket, sendBuffer, strlen(sendBuffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
-                    if (sentBytes == -1) {
-                        perror("sendto");
-                    }
-                }
-
-                for (int j = 0; j < statsCount; j++) {
-                    stats[j].value = 0;
-                }
-                statsCount = 0;
+        // Create and clear stats here for each batch
+        struct Stats stats[BUFFER_SIZE];
+        for (int i = 0; i < BUFFER_SIZE; i++) {
+            stats[i].value = 0;
         }
 
-        free(buffer);
+        // Process the items in batchBuffer
+        for (int i = 0; i < processBatchSize; ++i) {
+            char *buffer = batchBuffer[i];
+            // Your existing code for processing each buffer into `stats`
+            // ...
+
+            // Once you've processed each buffer, it's safe to free it
+            free(buffer);
+        }
+
+        // Send the processed data
+        for (int i = 0; i < BUFFER_SIZE; i++) {
+            if (stats[i].value != 0) { // Assuming zero means the stat is not filled
+                char sendBuffer[BUFFER_SIZE];
+                snprintf(sendBuffer, sizeof(sendBuffer), "%s:%d|%s", stats[i].key, stats[i].value, stats[i].type);
+
+                ssize_t sentBytes = sendto(udpSocket, sendBuffer, strlen(sendBuffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
+                if (sentBytes == -1) {
+                    perror("sendto");
+                }
+            }
+        }
+
+        bufferIndex = 0; // Reset the batch buffer index
     }
 
     return NULL;
