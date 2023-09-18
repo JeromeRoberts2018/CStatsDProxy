@@ -104,9 +104,10 @@ int main() {
             exit(1);
         }
     } else {
+        // Bind to any available IP address
         serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     }
-    
+
     if (bind(udpSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
         perror("Bind failed");
         exit(EXIT_FAILURE);
