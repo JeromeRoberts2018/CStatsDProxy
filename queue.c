@@ -30,7 +30,6 @@ void enqueue(Queue *queue, void *data) {
         queue->tail = node;
     }
     queue->currentSize++;
-//    printf("Enqueued packet. Queue size: %d\n", queue->currentSize); // Debug log
     pthread_cond_signal(&queue->cond);
     pthread_mutex_unlock(&queue->mutex);
 }
@@ -47,7 +46,6 @@ void* dequeue(Queue *queue) {
         queue->tail = NULL;
     }
     queue->currentSize--;
-//    printf("Dequeued packet. Queue size: %d\n", queue->currentSize); // Debug log
     free(temp);
     pthread_mutex_unlock(&queue->mutex);
     return data;

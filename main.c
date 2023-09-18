@@ -53,8 +53,8 @@ int main() {
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
     }
 
-    pthread_t log_thread;
-    pthread_create(&log_thread, NULL, logging_thread, args); // Pass args array to logging_thread
+    //pthread_t log_thread;
+    //pthread_create(&log_thread, NULL, logging_thread, args); // Pass args array to logging_thread
 
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in serverAddr;
@@ -89,8 +89,8 @@ int main() {
         pthread_cancel(threads[i]);
         pthread_join(threads[i], NULL);
     }
-    pthread_cancel(log_thread);
-    pthread_join(log_thread, NULL);
+    //pthread_cancel(log_thread);
+    //pthread_join(log_thread, NULL);
     close(sharedUdpSocket);
     close(udpSocket);
 
@@ -105,7 +105,7 @@ void *logging_thread(void *arg) {
         for (int i = 0; i < numWorkers; ++i) {
             Queue *queue = workerArgs[i].queue;
             pthread_mutex_lock(&queue->mutex);
-            printf("{ \"WorkerID\": %d, \"QueueSize\": %d }\n", workerArgs[i].workerID, workerArgs[i].queue->currentSize);
+            //printf("{ \"WorkerID\": %d, \"QueueSize\": %d }\n", workerArgs[i].workerID, workerArgs[i].queue->currentSize);
             fflush(stdout);
             pthread_mutex_unlock(&queue->mutex);
         }
@@ -159,7 +159,6 @@ void *worker_thread(void *arg) {
                 stats[statsCount].value = value;
                 statsCount++;
             }
-            //if (statsCount >= BUFFER_SIZE) {
                 for (int j = 0; j < statsCount; j++) {
                     char sendBuffer[2024];
                     snprintf(sendBuffer, sizeof(sendBuffer), "%s:%d|%s", stats[j].key, stats[j].value, stats[j].type);
@@ -174,7 +173,6 @@ void *worker_thread(void *arg) {
                     stats[j].value = 0;
                 }
                 statsCount = 0;
-            //}
         }
 
         free(buffer);
