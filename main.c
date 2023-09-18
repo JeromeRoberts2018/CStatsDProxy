@@ -56,6 +56,7 @@ void read_config() {
         sscanf(line, "%[^=]=%s", key, value);
 
         if (strcmp(key, "UDP_PORT") == 0) UDP_PORT = atoi(value);
+        else if (strcmp(key, "LISTEN_UDP_IP") == 0) strncpy(LISTEN_UDP_IP, value, sizeof(LISTEN_UDP_IP));
         else if (strcmp(key, "DEST_UDP_PORT") == 0) DEST_UDP_PORT = atoi(value);
         else if (strcmp(key, "DEST_UDP_IP") == 0) strncpy(DEST_UDP_IP, value, sizeof(DEST_UDP_IP));
         else if (strcmp(key, "MAX_MESSAGE_SIZE") == 0) MAX_MESSAGE_SIZE = atoi(value);
@@ -96,7 +97,7 @@ int main() {
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(UDP_PORT);
     //serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    
+
     // Configure the IP address based on the LISTEN_UDP_IP macro
     if (strcmp(LISTEN_UDP_IP, "0.0.0.0") == 0) {
         // Bind to any available IP address
