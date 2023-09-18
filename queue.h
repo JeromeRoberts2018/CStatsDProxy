@@ -22,7 +22,3 @@ void enqueue(Queue *queue, void *data);
 void* dequeue(Queue *queue);
 
 #endif
-
-
-
-
