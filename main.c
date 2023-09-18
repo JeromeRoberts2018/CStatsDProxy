@@ -161,6 +161,8 @@ void *worker_thread(void *arg) {
     int udpSocket = args->udpSocket;
     struct sockaddr_in destAddr = args->destAddr;
 
+    int statsCount = 0;
+
     char *batchBuffer[100];
     int bufferIndex = 0;
     int processBatchSize = 100;  // Define how many items to process before sending
@@ -184,8 +186,46 @@ void *worker_thread(void *arg) {
         // Process the items in batchBuffer
         for (int i = 0; i < processBatchSize; ++i) {
             char *buffer = batchBuffer[i];
-            // Your existing code for processing each buffer into `stats`
-            // ...
+            char *key, *valueStr, *type;
+            int value;
+            char *savePtr1;
+
+            key = strtok_r(buffer, ":", &savePtr1);
+            valueStr = strtok_r(NULL, "|", &savePtr1);
+            type = strtok_r(NULL, "|", &savePtr1);
+
+            if (key && valueStr && type) {
+                value = atoi(valueStr);
+
+                int found = 0;
+                for (int j = 0; j < statsCount; j++) {
+                    if (strcmp(stats[j].key, key) == 0 && strcmp(stats[j].type, type) == 0) {
+                        stats[j].value += value;
+                        found = 1;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    strncpy(stats[statsCount].key, key, sizeof(stats[statsCount].key));
+                    strncpy(stats[statsCount].type, type, sizeof(stats[statsCount].type));
+                    stats[statsCount].value = value;
+                    statsCount++;
+                }
+                    for (int j = 0; j < statsCount; j++) {
+                        char sendBuffer[2024];
+                        snprintf(sendBuffer, sizeof(sendBuffer), "%s:%d|%s", stats[j].key, stats[j].value, stats[j].type);
+                        ssize_t sentBytes = sendto(udpSocket, sendBuffer, strlen(sendBuffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
+                        if (sentBytes == -1) {
+                            perror("sendto");
+                        }
+                    }
+
+                    for (int j = 0; j < statsCount; j++) {
+                        stats[j].value = 0;
+                    }
+                    statsCount = 0;
+            }
 
             // Once you've processed each buffer, it's safe to free it
             free(buffer);
