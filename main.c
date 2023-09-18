@@ -96,17 +96,19 @@ int main() {
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(UDP_PORT);
     //serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    if (strcmp(LISTEN_UDP_IP, "0.0.0.0") != 0) {
+    
+    // Configure the IP address based on the LISTEN_UDP_IP macro
+    if (strcmp(LISTEN_UDP_IP, "0.0.0.0") == 0) {
+        // Bind to any available IP address
+        serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    } else {
         // Use the specified IP address
         if (inet_pton(AF_INET, LISTEN_UDP_IP, &(serverAddr.sin_addr)) <= 0) {
             perror("Invalid IP address");
             exit(1);
         }
-    } else {
-        // Bind to any available IP address
-        serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     }
+
 
     if (bind(udpSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
         perror("Bind failed");
