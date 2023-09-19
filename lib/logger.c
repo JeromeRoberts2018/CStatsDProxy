@@ -1,8 +1,16 @@
+#include <errno.h>
 #include "logger.h"
+#include <pthread.h>
+
+static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void write_log(const char *filename, const char *format, ...) {
+    pthread_mutex_lock(&log_mutex);
+
     FILE *file = fopen(filename, "a"); // Append to the file
     if (file == NULL) {
+        perror("Error opening file");  // Print the error
+        pthread_mutex_unlock(&log_mutex);
         return;
     }
 
@@ -13,10 +21,14 @@ void write_log(const char *filename, const char *format, ...) {
 
     va_list args;
     va_start(args, format);
-    vfprintf(file, format, args);
+    if (vfprintf(file, format, args) < 0) {
+        perror("Error writing to file");
+    }
     va_end(args);
 
     fprintf(file, "\n");
-
+    fflush(file);  // Flush the output buffer
     fclose(file);
+
+    pthread_mutex_unlock(&log_mutex);
 }
