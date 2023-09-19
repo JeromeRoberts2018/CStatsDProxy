@@ -21,6 +21,27 @@ struct WorkerArgs {
     int bufferSize;
 };
 
+/**
+ * Serves as a worker thread for processing and sending UDP packets.
+ * This function is designed to run as a separate thread and processes data from a queue to send via UDP.
+ *
+ * The function fetches arguments from a WorkerArgs structure and executes the following logic in an infinite loop:
+ * - It dequeues up to `processBatchSize` items from the queue.
+ * - Accumulates statistics based on the dequeued items.
+ * - Sends the statistics via UDP.
+ * 
+ * The function performs the following actions for each item in the batch:
+ * - Tokenizes the item to extract key, value, and type.
+ * - Updates or inserts the key-value-type triplet in an array of Stats structures.
+ * - Frees the memory of the processed item.
+ *
+ * After processing the batch, the function sends the accumulated statistics via UDP.
+ *
+ * The function uses mutexes to ensure thread-safe dequeue operations and uses a UDP socket for sending data.
+ * 
+ * @param arg A pointer to a WorkerArgs structure containing the queue, UDP socket, destination address, and buffer size.
+ * @return This function returns NULL as it is designed to run indefinitely.
+ */
 void *worker_thread(void *arg) {
     struct WorkerArgs *args = (struct WorkerArgs *)arg;
     Queue *queue = args->queue;

@@ -18,6 +18,28 @@ void trim(char *str) {
     *(end + 1) = 0;
 }
 
+/**
+ * Reads and parses a configuration file to set various application parameters.
+ * The function expects the configuration file to have key-value pairs separated by an '=' symbol.
+ * Each line should represent a single setting and should be in the form "KEY=VALUE".
+ * Comments can be included in the file with lines starting with a '#'.
+ *
+ * Supported keys and their respective variables:
+ * - UDP_PORT: Sets the variable UDP_PORT to the integer value.
+ * - LISTEN_UDP_IP: Sets the string LISTEN_UDP_IP.
+ * - DEST_UDP_PORT: Sets the variable DEST_UDP_PORT to the integer value.
+ * - DEST_UDP_IP: Sets the string DEST_UDP_IP.
+ * - MAX_MESSAGE_SIZE: Sets the variable MAX_MESSAGE_SIZE to the integer value.
+ * - BUFFER_SIZE: Sets the variable BUFFER_SIZE to the integer value.
+ * - MAX_THREADS: Sets the variable MAX_THREADS to the integer value.
+ * - MAX_QUEUE_SIZE: Sets the variable MAX_QUEUE_SIZE to the integer value.
+ * - LOGGING_INTERVAL: Sets the variable LOGGING_INTERVAL to the integer value.
+ * - LOGGING_ENABLED: Sets the variable LOGGING_ENABLED to the integer value.
+ * - LOGGING_FILE_NAME: Sets the string LOGGING_FILE_NAME.
+ *
+ * @param filepath The path to the configuration file.
+ * @return Returns 0 on successful parsing and setting of all keys. Returns -1 if the file could not be opened.
+ */
 int read_config(const char *filepath) {
     FILE *file = fopen(filepath, "r");
     if (file == NULL) {

@@ -39,20 +39,36 @@ struct WorkerArgs {
     int bufferSize;
 };
 
-// Function prototypes
 void *logging_thread(void *arg);
-//void *worker_thread(void *arg);
 
 
+/**
+ * Entry point of the CStatsDProxy server application.
+ * In summary, this function sets up worker threads to process the data, a logging thread to log statistics, and a main loop to receive and enqueue data.
+ *
+ * Upon startup, the function:
+ * - Reads the configuration file and validates it.
+ * - Initializes a shared UDP socket and destination address.
+ * - Initializes a queue.
+ * - Spawns worker threads and optionally, a logging thread.
+ *
+ * Once the setup is complete, it enters an infinite loop, where it:
+ * - Waits for incoming UDP packets.
+ * - Enqueues received packets into the shared queue.
+ * - Updates packet counters if logging is enabled.
+ *
+ * In case of failure at various stages (e.g., bind failure, invalid IP, config read failure), appropriate log messages are generated.
+ *
+ * @return Returns 1 if the configuration file could not be read; otherwise, the function runs indefinitely and does not return.
+ */
 int main() {
-    printf("Starting CStatsDProxy server...\n"); // Debug log
-    // Read config file
+    printf("Starting CStatsDProxy server...\n"); // To STDOUT, shows that the server is starting
     if (read_config("conf/config.conf") == -1) {
         write_log(LOGGING_FILE_NAME, "Failed to read configuration");
         return 1;
     }
-    printf("Starting server on %s:%d\n", LISTEN_UDP_IP, UDP_PORT); // Debug log
-    printf("Forwarding to %s:%d\n", DEST_UDP_IP, DEST_UDP_PORT); // Debug log
+    printf("Starting server on %s:%d\n", LISTEN_UDP_IP, UDP_PORT); // STDOUT, shows where the server is listening
+    printf("Forwarding to %s:%d\n", DEST_UDP_IP, DEST_UDP_PORT); // STDOUT, shows where the server is forwarding to
     if (LOGGING_ENABLED) {
         write_log(LOGGING_FILE_NAME, "Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
         write_log(LOGGING_FILE_NAME, "Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
@@ -87,12 +103,9 @@ int main() {
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(UDP_PORT);
 
-    // Configure the IP address based on the LISTEN_UDP_IP macro
     if (strcmp(LISTEN_UDP_IP, "0.0.0.0") == 0) {
-        // Bind to any available IP address
         serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     } else {
-        // Use the specified IP address
         if (inet_pton(AF_INET, LISTEN_UDP_IP, &(serverAddr.sin_addr)) <= 0) {
             write_log(LOGGING_FILE_NAME, "Invalid IP address: %s", LISTEN_UDP_IP);
             exit(1);
@@ -139,9 +152,27 @@ int main() {
     return 0;
 }
 
+/**
+ * Acts as a logging thread that periodically writes status information to a log file.
+ * This function is designed to run as a separate thread and logs information about worker queues and packet counts.
+ *
+ * The function fetches arguments from a WorkerArgs structure and logs the following:
+ * - The current size of each worker's queue.
+ * - The number of packets processed since the last logging interval.
+ *
+ * Logging is controlled by the following global variables:
+ * - LOGGING_INTERVAL: The time interval (in seconds) between each log.
+ * - LOGGING_FILE_NAME: The name of the file where logs are written.
+ * - MAX_THREADS: The maximum number of worker threads.
+ * 
+ * The function uses mutexes to ensure thread-safe access to shared resources.
+ *
+ * @param arg A pointer to an array of WorkerArgs structures. Each structure contains a queue and a workerID.
+ * @return This function returns NULL as it is designed to run indefinitely.
+ */
 void *logging_thread(void *arg) {
     struct WorkerArgs *workerArgs = (struct WorkerArgs *) arg;
-    int numWorkers = MAX_THREADS; // Change this to the actual number of worker threads
+    int numWorkers = MAX_THREADS;
 
     while (1) {
         sleep(LOGGING_INTERVAL);
@@ -149,7 +180,7 @@ void *logging_thread(void *arg) {
         for (int i = 0; i < numWorkers; ++i) {
             Queue *queue = workerArgs[i].queue;
             pthread_mutex_lock(&queue->mutex);
-            write_log(LOGGING_FILE_NAME, "WorkerID: %d\n QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
+            write_log(LOGGING_FILE_NAME, "WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
             pthread_mutex_unlock(&queue->mutex);
         }
         

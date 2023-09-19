@@ -4,6 +4,14 @@
 
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/**
+ * Writes a log entry to a given file.
+ * The function locks a mutex to ensure that only one thread writes to the file at a given time.
+ *
+ * @param filename The name of the file to write the log entry to.
+ * @param format A format string for the log entry.
+ * @param ... Variable arguments to include in the log.
+ */
 void write_log(const char *filename, const char *format, ...) {
     pthread_mutex_lock(&log_mutex);
 
