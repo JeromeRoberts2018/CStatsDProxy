@@ -42,11 +42,17 @@ void *logging_thread(void *arg);
 
 
 int main() {
+    printf("Starting CStatsDProxy server...\n"); // Debug log
     // Read config file
     if (read_config("conf/config.conf") == -1) {
         write_log(LOGGING_FILE_NAME, "Failed to read configuration");
         return 1;
     }
+    printf("Starting server on %s:%d\n", LISTEN_UDP_IP, UDP_PORT); // Debug log
+    printf("Forwarding to %s:%d\n", DEST_UDP_IP, DEST_UDP_PORT); // Debug log
+    write_log(LOGGING_FILE_NAME, "Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
+    write_log(LOGGING_FILE_NAME, "Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
+
     Queue *queue = initQueue(MAX_QUEUE_SIZE);
     int sharedUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -116,10 +122,10 @@ int main() {
         pthread_cancel(threads[i]);
         pthread_join(threads[i], NULL);
     }
-    if (LOGGING_ENABLED) {
+    //if (LOGGING_ENABLED) {
         //pthread_cancel(log_thread);
         //pthread_join(log_thread, NULL);
-    }
+    //}
     close(sharedUdpSocket);
     close(udpSocket);
 

@@ -15,6 +15,7 @@
 # Project files that should not be versioned
 *.swp
 *.swo
+*.log
 
 # Visual Studio Code files
 .vscode/
