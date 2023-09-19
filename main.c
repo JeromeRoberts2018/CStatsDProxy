@@ -5,7 +5,10 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include "queue.h"
+#include "lib/queue.h"
+#include "lib/worker.h"
+#include "lib/logger.h"
+#include "lib/config_reader.h"
 
 int UDP_PORT;
 char LISTEN_UDP_IP[16];
@@ -15,6 +18,9 @@ int MAX_MESSAGE_SIZE;
 int BUFFER_SIZE;
 int MAX_THREADS;
 int MAX_QUEUE_SIZE;
+int LOGGING_INTERVAL;
+int LOGGING_ENABLED;
+char LOGGING_FILE_NAME[256];
 
 struct Stats {
     char key[256];
@@ -27,41 +33,20 @@ struct WorkerArgs {
     int udpSocket;
     struct sockaddr_in destAddr;
     int workerID;
+    int bufferSize;
 };
 
 // Function prototypes
 void *logging_thread(void *arg);
-void *worker_thread(void *arg);
+//void *worker_thread(void *arg);
 
-void read_config() {
-    FILE *fp = fopen("config.conf", "r");
-    if (fp == NULL) {
-        perror("Could not open config file");
-        exit(EXIT_FAILURE);
-    }
-
-    char line[256];
-    while (fgets(line, sizeof(line), fp)) {
-        char key[128];
-        char value[128];
-
-        sscanf(line, "%[^=]=%s", key, value);
-
-        if (strcmp(key, "UDP_PORT") == 0) UDP_PORT = atoi(value);
-        else if (strcmp(key, "LISTEN_UDP_IP") == 0) strncpy(LISTEN_UDP_IP, value, sizeof(LISTEN_UDP_IP));
-        else if (strcmp(key, "DEST_UDP_PORT") == 0) DEST_UDP_PORT = atoi(value);
-        else if (strcmp(key, "DEST_UDP_IP") == 0) strncpy(DEST_UDP_IP, value, sizeof(DEST_UDP_IP));
-        else if (strcmp(key, "MAX_MESSAGE_SIZE") == 0) MAX_MESSAGE_SIZE = atoi(value);
-        else if (strcmp(key, "BUFFER_SIZE") == 0) BUFFER_SIZE = atoi(value);
-        else if (strcmp(key, "MAX_THREADS") == 0) MAX_THREADS = atoi(value);
-        else if (strcmp(key, "MAX_QUEUE_SIZE") == 0) MAX_QUEUE_SIZE = atoi(value);
-    }
-    fclose(fp);
-}
 
 int main() {
     // Read config file
-    read_config();
+    if (read_config("conf/config.conf") == -1) {
+        write_log(LOGGING_FILE_NAME, "Failed to read configuration");
+        return 1;
+    }
     Queue *queue = initQueue(MAX_QUEUE_SIZE);
     int sharedUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -77,12 +62,15 @@ int main() {
         args[i].udpSocket = sharedUdpSocket; // Assign the shared UDP socket
         args[i].destAddr = destAddr; // Assign the shared destination address
         args[i].workerID = i; // Assign a unique worker ID to each thread
-
+        args[i].bufferSize = BUFFER_SIZE; // Assign the buffer size
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
     }
 
-    //pthread_t log_thread;
-    //pthread_create(&log_thread, NULL, logging_thread, args); // Pass args array to logging_thread
+    if (LOGGING_ENABLED) {
+        write_log(LOGGING_FILE_NAME, "Logging enabled");
+        pthread_t log_thread;
+        pthread_create(&log_thread, NULL, logging_thread, args);
+    }
 
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
     struct sockaddr_in serverAddr;
@@ -96,11 +84,10 @@ int main() {
     } else {
         // Use the specified IP address
         if (inet_pton(AF_INET, LISTEN_UDP_IP, &(serverAddr.sin_addr)) <= 0) {
-            perror("Invalid IP address");
+            printf("Invalid IP address: %s", LISTEN_UDP_IP);
             exit(1);
         }
     }
-
 
     if (bind(udpSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
         perror("Bind failed");
@@ -129,8 +116,10 @@ int main() {
         pthread_cancel(threads[i]);
         pthread_join(threads[i], NULL);
     }
-    //pthread_cancel(log_thread);
-    //pthread_join(log_thread, NULL);
+    if (LOGGING_ENABLED) {
+        //pthread_cancel(log_thread);
+        //pthread_join(log_thread, NULL);
+    }
     close(sharedUdpSocket);
     close(udpSocket);
 
@@ -145,106 +134,12 @@ void *logging_thread(void *arg) {
         for (int i = 0; i < numWorkers; ++i) {
             Queue *queue = workerArgs[i].queue;
             pthread_mutex_lock(&queue->mutex);
+            write_log(LOGGING_FILE_NAME, "{ \"WorkerID\": %d, \"QueueSize\": %d }", workerArgs[i].workerID, queue->currentSize);
             //printf("{ \"WorkerID\": %d, \"QueueSize\": %d }\n", workerArgs[i].workerID, workerArgs[i].queue->currentSize);
-            fflush(stdout);
+            //fflush(stdout);
             pthread_mutex_unlock(&queue->mutex);
         }
-        sleep(30);
-    }
-
-    return NULL;
-}
-
-void *worker_thread(void *arg) {
-    struct WorkerArgs *args = (struct WorkerArgs *)arg;
-    Queue *queue = args->queue;
-    int udpSocket = args->udpSocket;
-    struct sockaddr_in destAddr = args->destAddr;
-
-    int statsCount = 0;
-
-    char *batchBuffer[100];
-    int bufferIndex = 0;
-    int processBatchSize = 100;  // Define how many items to process before sending
-
-    while (1) {
-        // Dequeue items and store them in batchBuffer
-        if (bufferIndex < processBatchSize) {
-            char *buffer = dequeue(queue);
-            if (buffer != NULL) {
-                batchBuffer[bufferIndex++] = buffer;
-            }
-            continue;
-        }
-
-        // Create and clear stats here for each batch
-        struct Stats stats[BUFFER_SIZE];
-        for (int i = 0; i < BUFFER_SIZE; i++) {
-            stats[i].value = 0;
-        }
-
-        // Process the items in batchBuffer
-        for (int i = 0; i < processBatchSize; ++i) {
-            char *buffer = batchBuffer[i];
-            char *key, *valueStr, *type;
-            int value;
-            char *savePtr1;
-
-            key = strtok_r(buffer, ":", &savePtr1);
-            valueStr = strtok_r(NULL, "|", &savePtr1);
-            type = strtok_r(NULL, "|", &savePtr1);
-
-            if (key && valueStr && type) {
-                value = atoi(valueStr);
-
-                int found = 0;
-                for (int j = 0; j < statsCount; j++) {
-                    if (strcmp(stats[j].key, key) == 0 && strcmp(stats[j].type, type) == 0) {
-                        stats[j].value += value;
-                        found = 1;
-                        break;
-                    }
-                }
-
-                if (!found) {
-                    strncpy(stats[statsCount].key, key, sizeof(stats[statsCount].key));
-                    strncpy(stats[statsCount].type, type, sizeof(stats[statsCount].type));
-                    stats[statsCount].value = value;
-                    statsCount++;
-                }
-                    for (int j = 0; j < statsCount; j++) {
-                        char sendBuffer[2024];
-                        snprintf(sendBuffer, sizeof(sendBuffer), "%s:%d|%s", stats[j].key, stats[j].value, stats[j].type);
-                        ssize_t sentBytes = sendto(udpSocket, sendBuffer, strlen(sendBuffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
-                        if (sentBytes == -1) {
-                            perror("sendto");
-                        }
-                    }
-
-                    for (int j = 0; j < statsCount; j++) {
-                        stats[j].value = 0;
-                    }
-                    statsCount = 0;
-            }
-
-            // Once you've processed each buffer, it's safe to free it
-            free(buffer);
-        }
-
-        // Send the processed data
-        for (int i = 0; i < BUFFER_SIZE; i++) {
-            if (stats[i].value != 0) { // Assuming zero means the stat is not filled
-                char sendBuffer[BUFFER_SIZE];
-                snprintf(sendBuffer, sizeof(sendBuffer), "%s:%d|%s", stats[i].key, stats[i].value, stats[i].type);
-
-                ssize_t sentBytes = sendto(udpSocket, sendBuffer, strlen(sendBuffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
-                if (sentBytes == -1) {
-                    perror("sendto");
-                }
-            }
-        }
-
-        bufferIndex = 0; // Reset the batch buffer index
+        sleep(LOGGING_INTERVAL);
     }
 
     return NULL;

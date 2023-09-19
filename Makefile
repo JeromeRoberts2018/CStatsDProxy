@@ -1,16 +1,35 @@
+# Output executable name
+TARGET = CStatsDProxy
+
+# Installation directory
+INSTALL_DIR = /srv/CStatsDProxy
+
+# Source files and object files
+SRC = main.c lib/logger.c lib/config_reader.c lib/queue.c lib/worker.c
+OBJ = $(SRC:.c=.o)
+
+# Compiler and linker
 CC = gcc
-CFLAGS = -Wall -Wextra
+LD = gcc
 
-all: CStatsDProxy
+# Compiler and linker flags
+CFLAGS = -Wall -c
+LDFLAGS = -lpthread
 
-CStatsDProxy: main.o queue.o
-	$(CC) $(CFLAGS) -o CStatsDProxy main.o queue.o -lpthread
+# Build rules
+all: $(TARGET)
 
-main.o: main.c queue.h
-	$(CC) $(CFLAGS) -c main.c
+$(TARGET): $(OBJ)
+	$(LD) $(OBJ) -o $(TARGET) $(LDFLAGS)
 
-queue.o: queue.c queue.h
-	$(CC) $(CFLAGS) -c queue.c
+%.o: %.c
+	$(CC) $(CFLAGS) $< -o $@
+
+install: $(TARGET)
+	mkdir -p $(INSTALL_DIR)
+	cp $(TARGET) $(INSTALL_DIR)
 
 clean:
-	rm -f *.o CStatsDProxy
+	rm -f $(OBJ) $(TARGET)
+
+.PHONY: all clean install
