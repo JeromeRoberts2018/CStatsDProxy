@@ -62,17 +62,22 @@ void *logging_thread(void *arg);
  * @return Returns 1 if the configuration file could not be read; otherwise, the function runs indefinitely and does not return.
  */
 int main() {
+
     printf("Starting CStatsDProxy server...\n"); // To STDOUT, shows that the server is starting
+
     if (read_config("conf/config.conf") == -1) {
         write_log(LOGGING_FILE_NAME, "Failed to read configuration");
         return 1;
     }
+
     printf("Starting server on %s:%d\n", LISTEN_UDP_IP, UDP_PORT); // STDOUT, shows where the server is listening
     printf("Forwarding to %s:%d\n", DEST_UDP_IP, DEST_UDP_PORT); // STDOUT, shows where the server is forwarding to
+
     if (LOGGING_ENABLED) {
         write_log(LOGGING_FILE_NAME, "Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
         write_log(LOGGING_FILE_NAME, "Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
     }
+    
     Queue *queue = initQueue(MAX_QUEUE_SIZE);
     int sharedUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -133,10 +138,10 @@ int main() {
                 pthread_mutex_unlock(&packet_counter_mutex);
             }
         } else if (recvLen == 0) {
-            write_log(LOGGING_FILE_NAME, "Received zero bytes. Connection closed or terminated.");
+            if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "Received zero bytes. Connection closed or terminated."); }
             free(buffer);
         } else {
-            write_log(LOGGING_FILE_NAME, "recvfrom() returned an error: %zd", recvLen);
+            if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "recvfrom() returned an error: %zd", recvLen); }
             free(buffer);
         }
     }

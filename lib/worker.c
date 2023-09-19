@@ -75,9 +75,10 @@ void *worker_thread(void *arg) {
             int value;
             char *savePtr1;
 
-            key = strtok_r(buffer, ":", &savePtr1);
-            valueStr = strtok_r(NULL, "|", &savePtr1);
-            type = strtok_r(NULL, "|", &savePtr1);
+            //key = strtok_r(buffer, ":", &savePtr1);
+            //valueStr = strtok_r(NULL, "|", &savePtr1);
+            //type = strtok_r(NULL, "|", &savePtr1);
+            fast_tokenize(buffer, &key, &valueStr, &type);
 
             if (key && valueStr && type) {
                 value = atoi(valueStr);
@@ -124,4 +125,43 @@ void *worker_thread(void *arg) {
     }
 
     return NULL;
+}
+
+/**
+ * Quickly tokenizes a packet string into key, value, and type components.
+ *
+ * This function uses in-place modification of the input string for performance.
+ * It updates the provided pointers to point to the relevant sub-strings within the packet string.
+ * The function is designed for a specific format: "key:value|type". 
+ * Any other format may result in undefined behavior.
+ *
+ * @param packet   The input string to tokenize. Will be modified in-place.
+ * @param key      Pointer to store the starting address of the 'key' part in the packet.
+ * @param valueStr Pointer to store the starting address of the 'value' part in the packet.
+ * @param type     Pointer to store the starting address of the 'type' part in the packet.
+ *
+ * Examples:
+ * Input:  "cpu:100|gauge", Output: key="cpu", valueStr="100", type="gauge"
+ * Input:  "mem:2048|counter", Output: key="mem", valueStr="2048", type="counter"
+ *
+ * Note: Function does not return any value but modifies the pointers.
+ */
+void fast_tokenize(char *packet, char **key, char **valueStr, char **type) {
+    char *cursor;
+
+    cursor = strchr(packet, ':');
+    if (cursor == NULL) return;
+    *cursor = '\0';
+    *key = packet;
+
+    *valueStr = cursor + 1;
+    cursor = strchr(*valueStr, '|');
+    if (cursor == NULL) return;
+    *cursor = '\0';
+
+    *type = cursor + 1;
+    cursor = strchr(*type, '|');
+    if (cursor != NULL) {
+        *cursor = '\0';
+    }
 }
