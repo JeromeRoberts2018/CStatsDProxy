@@ -20,6 +20,8 @@ struct WorkerArgs {
     int workerID;
     int bufferSize;
 };
+void fast_tokenize(char *packet, char **key, char **valueStr, char **type);
+
 
 /**
  * Serves as a worker thread for processing and sending UDP packets.
@@ -73,7 +75,7 @@ void *worker_thread(void *arg) {
             char *buffer = batchBuffer[i];
             char *key, *valueStr, *type;
             int value;
-            char *savePtr1;
+            //char *savePtr1;
 
             //key = strtok_r(buffer, ":", &savePtr1);
             //valueStr = strtok_r(NULL, "|", &savePtr1);
