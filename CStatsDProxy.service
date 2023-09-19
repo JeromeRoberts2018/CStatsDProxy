@@ -1,0 +1,15 @@
+[Unit]
+Description=CStatsDProxy
+After=network.target
+
+[Service]
+ExecStart=/usr/sbin/CStatsDProxy
+User=CStatsDProxy
+Group=CStatsDProxy
+Type=simple
+PIDFile=/var/run/CStatsDProxy.pid
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
