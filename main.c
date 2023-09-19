@@ -50,9 +50,10 @@ int main() {
     }
     printf("Starting server on %s:%d\n", LISTEN_UDP_IP, UDP_PORT); // Debug log
     printf("Forwarding to %s:%d\n", DEST_UDP_IP, DEST_UDP_PORT); // Debug log
-    write_log(LOGGING_FILE_NAME, "Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
-    write_log(LOGGING_FILE_NAME, "Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
-
+    if (LOGGING_ENABLED) {
+        write_log(LOGGING_FILE_NAME, "Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
+        write_log(LOGGING_FILE_NAME, "Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
+    }
     Queue *queue = initQueue(MAX_QUEUE_SIZE);
     int sharedUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
