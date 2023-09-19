@@ -54,11 +54,7 @@ int read_config(const char *filepath) {
         } else if (strcmp(key, "LOGGING_INTERVAL") == 0) {
             LOGGING_INTERVAL = atoi(value);
         } else if (strcmp(key, "LOGGING_ENABLED") == 0) {
-            if (strcasecmp(value, "true") == 0) {
-                LOGGING_ENABLED = 1;
-            } else {
-                LOGGING_ENABLED = 0;
-            }
+            LOGGING_INTERVAL = atoi(value);
         } else if (strcmp(key, "LOGGING_FILE_NAME") == 0) {
             strncpy(LOGGING_FILE_NAME, value, sizeof(LOGGING_FILE_NAME) - 1);
             LOGGING_FILE_NAME[sizeof(LOGGING_FILE_NAME) - 1] = '\0';  // Ensure null-termination
