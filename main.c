@@ -22,6 +22,9 @@ int LOGGING_INTERVAL;
 int LOGGING_ENABLED;
 char LOGGING_FILE_NAME[256];
 
+unsigned long long packet_counter = 0;
+pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 struct Stats {
     char key[256];
     char type[4];
@@ -91,12 +94,13 @@ int main() {
     } else {
         // Use the specified IP address
         if (inet_pton(AF_INET, LISTEN_UDP_IP, &(serverAddr.sin_addr)) <= 0) {
-            printf("Invalid IP address: %s", LISTEN_UDP_IP);
+            write_log(LOGGING_FILE_NAME, "Invalid IP address: %s", LISTEN_UDP_IP);
             exit(1);
         }
     }
 
     if (bind(udpSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
+        write_log(LOGGING_FILE_NAME, "Bind failed");
         perror("Bind failed");
         exit(EXIT_FAILURE);
     }
@@ -110,11 +114,16 @@ int main() {
         if (recvLen > 0) {
             buffer[recvLen] = '\0';
             enqueue(queue, buffer);
+            if (LOGGING_ENABLED) {
+                pthread_mutex_lock(&packet_counter_mutex);
+                packet_counter++;
+                pthread_mutex_unlock(&packet_counter_mutex);
+            }
         } else if (recvLen == 0) {
-            printf("Received zero bytes. Connection closed or terminated.\n"); // Debug log
+            write_log(LOGGING_FILE_NAME, "Received zero bytes. Connection closed or terminated.");
             free(buffer);
         } else {
-            printf("recvfrom() returned an error: %zd\n", recvLen); // Debug log
+            write_log(LOGGING_FILE_NAME, "recvfrom() returned an error: %zd", recvLen);
             free(buffer);
         }
     }
@@ -123,10 +132,7 @@ int main() {
         pthread_cancel(threads[i]);
         pthread_join(threads[i], NULL);
     }
-    //if (LOGGING_ENABLED) {
-        //pthread_cancel(log_thread);
-        //pthread_join(log_thread, NULL);
-    //}
+
     close(sharedUdpSocket);
     close(udpSocket);
 
@@ -138,15 +144,20 @@ void *logging_thread(void *arg) {
     int numWorkers = MAX_THREADS; // Change this to the actual number of worker threads
 
     while (1) {
+        sleep(LOGGING_INTERVAL);
+
         for (int i = 0; i < numWorkers; ++i) {
             Queue *queue = workerArgs[i].queue;
             pthread_mutex_lock(&queue->mutex);
-            write_log(LOGGING_FILE_NAME, "{ \"WorkerID\": %d, \"QueueSize\": %d }", workerArgs[i].workerID, queue->currentSize);
-            //printf("{ \"WorkerID\": %d, \"QueueSize\": %d }\n", workerArgs[i].workerID, workerArgs[i].queue->currentSize);
-            //fflush(stdout);
+            write_log(LOGGING_FILE_NAME, "WorkerID: %d\n QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
             pthread_mutex_unlock(&queue->mutex);
         }
-        sleep(LOGGING_INTERVAL);
+        
+        pthread_mutex_lock(&packet_counter_mutex);
+        write_log(LOGGING_FILE_NAME, "Packets Since Last Logging: %llu", packet_counter);
+        packet_counter = 0;
+        pthread_mutex_unlock(&packet_counter_mutex);
+
     }
 
     return NULL;
