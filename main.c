@@ -9,6 +9,7 @@
 #include "lib/worker.h"
 #include "lib/logger.h"
 #include "lib/config_reader.h"
+#include "lib/udp_server.h"
 
 int UDP_PORT;
 char LISTEN_UDP_IP[16];
@@ -62,38 +63,43 @@ void *logging_thread(void *arg);
  * @return Returns 1 if the configuration file could not be read; otherwise, the function runs indefinitely and does not return.
  */
 int main() {
-
-    printf("Starting CStatsDProxy server...\n"); // To STDOUT, shows that the server is starting
+    printf("Starting CStatsDProxy server...\n");
 
     if (read_config("conf/config.conf") == -1) {
         write_log(LOGGING_FILE_NAME, "Failed to read configuration");
         return 1;
     }
 
-    printf("Starting server on %s:%d\n", LISTEN_UDP_IP, UDP_PORT); // STDOUT, shows where the server is listening
-    printf("Forwarding to %s:%d\n", DEST_UDP_IP, DEST_UDP_PORT); // STDOUT, shows where the server is forwarding to
+    printf("Starting server on %s:%d\n", LISTEN_UDP_IP, UDP_PORT);
+    printf("Forwarding to %s:%d\n", DEST_UDP_IP, DEST_UDP_PORT);
 
     if (LOGGING_ENABLED) {
         write_log(LOGGING_FILE_NAME, "Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
         write_log(LOGGING_FILE_NAME, "Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
     }
-    
-    Queue *queue = initQueue(MAX_QUEUE_SIZE);
-    int sharedUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
-    struct sockaddr_in destAddr;
-    destAddr.sin_family = AF_INET;
-    destAddr.sin_port = htons(DEST_UDP_PORT);
-    destAddr.sin_addr.s_addr = inet_addr(DEST_UDP_IP);
+    //Queue *queue = initQueue(MAX_QUEUE_SIZE);
+
+    struct sockaddr_in destAddr, serverAddr;
+    int sharedUdpSocket = initialize_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr, LOGGING_FILE_NAME);
+    int udpSocket = initialize_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr, LOGGING_FILE_NAME);
+
+
+    if (sharedUdpSocket == -1 || udpSocket == -1) {
+        return 1;
+    }
 
     pthread_t threads[MAX_THREADS];
     struct WorkerArgs args[MAX_THREADS];
+    Queue *queues[MAX_THREADS];
+
     for (int i = 0; i < MAX_THREADS; ++i) {
-        args[i].queue = queue; // Assign the specific queue to each worker
-        args[i].udpSocket = sharedUdpSocket; // Assign the shared UDP socket
-        args[i].destAddr = destAddr; // Assign the shared destination address
-        args[i].workerID = i; // Assign a unique worker ID to each thread
-        args[i].bufferSize = BUFFER_SIZE; // Assign the buffer size
+        queues[i] = initQueue(MAX_QUEUE_SIZE);
+        args[i].queue = queues[i];
+        args[i].udpSocket = sharedUdpSocket;
+        args[i].destAddr = destAddr;
+        args[i].workerID = i;
+        args[i].bufferSize = BUFFER_SIZE;
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
     }
 
@@ -103,49 +109,9 @@ int main() {
         pthread_create(&log_thread, NULL, logging_thread, args);
     }
 
-    int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    struct sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(UDP_PORT);
+    udp_server_loop(udpSocket, queues, MAX_THREADS, MAX_MESSAGE_SIZE, LOGGING_ENABLED, LOGGING_FILE_NAME, &packet_counter_mutex, &packet_counter);
 
-    if (strcmp(LISTEN_UDP_IP, "0.0.0.0") == 0) {
-        serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    } else {
-        if (inet_pton(AF_INET, LISTEN_UDP_IP, &(serverAddr.sin_addr)) <= 0) {
-            write_log(LOGGING_FILE_NAME, "Invalid IP address: %s", LISTEN_UDP_IP);
-            exit(1);
-        }
-    }
-
-    if (bind(udpSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0) {
-        write_log(LOGGING_FILE_NAME, "Bind failed");
-        perror("Bind failed");
-        exit(EXIT_FAILURE);
-    }
-
-    while (1) {
-        char *buffer = malloc(MAX_MESSAGE_SIZE);
-        struct sockaddr_in clientAddr;
-        socklen_t addrSize = sizeof(clientAddr);
-        ssize_t recvLen = recvfrom(udpSocket, buffer, MAX_MESSAGE_SIZE - 1, 0, (struct sockaddr *)&clientAddr, &addrSize);
-
-        if (recvLen > 0) {
-            buffer[recvLen] = '\0';
-            enqueue(queue, buffer);
-            if (LOGGING_ENABLED) {
-                pthread_mutex_lock(&packet_counter_mutex);
-                packet_counter++;
-                pthread_mutex_unlock(&packet_counter_mutex);
-            }
-        } else if (recvLen == 0) {
-            if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "Received zero bytes. Connection closed or terminated."); }
-            free(buffer);
-        } else {
-            if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "recvfrom() returned an error: %zd", recvLen); }
-            free(buffer);
-        }
-    }
-
+    // Cleanup - although you'd typically never reach here in an infinite loop server.
     for (int i = 0; i < MAX_THREADS; ++i) {
         pthread_cancel(threads[i]);
         pthread_join(threads[i], NULL);

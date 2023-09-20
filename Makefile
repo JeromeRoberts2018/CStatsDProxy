@@ -5,7 +5,7 @@ TARGET = CStatsDProxy
 INSTALL_DIR = /usr/sbin
 
 # Source files and object files
-SRC = main.c lib/logger.c lib/config_reader.c lib/queue.c lib/worker.c
+SRC = main.c lib/logger.c lib/config_reader.c lib/queue.c lib/worker.c lib/udp_server.c
 OBJ = $(SRC:.c=.o)
 
 # Compiler and linker
