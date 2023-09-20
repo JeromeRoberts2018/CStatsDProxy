@@ -81,8 +81,8 @@ int main() {
     //Queue *queue = initQueue(MAX_QUEUE_SIZE);
 
     struct sockaddr_in destAddr, serverAddr;
-    int sharedUdpSocket = initialize_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr, LOGGING_FILE_NAME);
-    int udpSocket = initialize_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr, LOGGING_FILE_NAME);
+    int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr, LOGGING_FILE_NAME);
+    int udpSocket = initialize_listener_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr, LOGGING_FILE_NAME);
 
 
     if (sharedUdpSocket == -1 || udpSocket == -1) {

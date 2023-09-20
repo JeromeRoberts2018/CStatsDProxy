@@ -1,4 +1,3 @@
-// lib/udp_server.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,9 +7,25 @@
 #include "udp_server.h"
 #include "logger.h"
 #include <arpa/inet.h>
-#include <netinet/in.h>
 
-int initialize_udp_socket(const char *ip, int port, struct sockaddr_in *address, const char *logging_file_name) {
+// Initialize a shared UDP socket for sending data
+int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *address, const char *logging_file_name) {
+    int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (udpSocket == -1) {
+        write_log(logging_file_name, "Socket creation failed");
+        return -1;
+    }
+
+    address->sin_family = AF_INET;
+    address->sin_port = htons(port);
+    address->sin_addr.s_addr = inet_addr(ip);
+
+    return udpSocket;
+}
+
+// Initialize a UDP socket for listening
+int initialize_listener_udp_socket(const char *ip, int port, struct sockaddr_in *address, const char *logging_file_name) {
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
     address->sin_family = AF_INET;
     address->sin_port = htons(port);
