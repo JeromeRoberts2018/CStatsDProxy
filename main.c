@@ -151,12 +151,16 @@ void *logging_thread(void *arg) {
         for (int i = 0; i < numWorkers; ++i) {
             Queue *queue = workerArgs[i].queue;
             pthread_mutex_lock(&queue->mutex);
-            write_log(LOGGING_FILE_NAME, "WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
+            if (queue->currentSize > 0) { 
+                write_log(LOGGING_FILE_NAME, "WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
+            }
             pthread_mutex_unlock(&queue->mutex);
         }
         
         pthread_mutex_lock(&packet_counter_mutex);
-        write_log(LOGGING_FILE_NAME, "Packets Since Last Logging: %llu", packet_counter);
+        if (packet_counter > 0) {
+            write_log(LOGGING_FILE_NAME, "Packets Since Last Logging: %llu", packet_counter);
+        
         packet_counter = 0;
         pthread_mutex_unlock(&packet_counter_mutex);
 
