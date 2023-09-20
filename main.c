@@ -25,6 +25,7 @@ char LOGGING_FILE_NAME[256];
 
 unsigned long long packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
+Queue **queues = NULL;
 
 struct Stats {
     char key[256];
@@ -91,7 +92,7 @@ int main() {
 
     pthread_t threads[MAX_THREADS];
     struct WorkerArgs args[MAX_THREADS];
-    Queue *queues[MAX_THREADS];
+    queues = malloc(sizeof(Queue*) * MAX_THREADS);
 
     for (int i = 0; i < MAX_THREADS; ++i) {
         queues[i] = initQueue(MAX_QUEUE_SIZE);
@@ -160,6 +161,12 @@ void *logging_thread(void *arg) {
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 0) {
             write_log(LOGGING_FILE_NAME, "Packets Since Last Logging: %llu", packet_counter);
+            // Create a StatsD metric string
+            char *statsd_metric = malloc(256); // Allocate enough space for the metric
+            snprintf(statsd_metric, 256, "stats.CStatsDProxy.logging_interval.packetsreceived:%llu|c", packet_counter);
+
+            // Enqueue the StatsD metric to the worker's queue at index 1
+            enqueue(queues[1], statsd_metric);
         }        
         packet_counter = 0;
         pthread_mutex_unlock(&packet_counter_mutex);
