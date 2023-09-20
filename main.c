@@ -160,7 +160,7 @@ void *logging_thread(void *arg) {
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 0) {
             write_log(LOGGING_FILE_NAME, "Packets Since Last Logging: %llu", packet_counter);
-        
+        }        
         packet_counter = 0;
         pthread_mutex_unlock(&packet_counter_mutex);
 
