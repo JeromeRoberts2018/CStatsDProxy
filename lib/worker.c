@@ -49,44 +49,21 @@ void *worker_thread(void *arg) {
     Queue *queue = args->queue;
     int udpSocket = args->udpSocket;
     struct sockaddr_in destAddr = args->destAddr;
-    int bufferSize = args->bufferSize;
-
-    int statsCount = 0;
-
-    char *batchBuffer[1000];
-    int bufferIndex = 0;
-    int processBatchSize = 1000;  // Define how many items to process before sending
 
     while (1) {
-        // Dequeue messages into a batch buffer until it reaches the batch size
-        if (bufferIndex < processBatchSize) {
-            char *buffer = dequeue(queue);
-            if (buffer != NULL) {
-                batchBuffer[bufferIndex++] = buffer;
-            }
-            continue;
-        }
+        char *buffer = dequeue(queue);
+        if (buffer != NULL) {
+            ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
 
-        // Send the batched data
-        for (int i = 0; i < processBatchSize; ++i) {
-            char *buffer = batchBuffer[i];
-            if (buffer != NULL) { // Add this check to be safe
-                ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
-
-                // If sending fails, re-queue the buffer to be sent later
-                if (sentBytes == -1) {
-                    //perror("Requeue message, send failed");
-                    enqueue(queue, buffer);  // Re-queue the message to be sent later
-                    // don't requeue locally, could result in failure loop
-                } else {
-                    free(buffer);
-                }
+            // If sending fails, re-queue the buffer to be sent later
+            if (sentBytes == -1) {
+                enqueue(queue, buffer);  // Re-queue the message to be sent later
+            } else {
+                free(buffer);
             }
         }
-
-        // Reset the batch buffer index to zero for the next round of batching
-        bufferIndex = 0;
     }
+
 
 
     return NULL;
