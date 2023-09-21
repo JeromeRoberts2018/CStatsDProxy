@@ -1,5 +1,6 @@
 // main.c
 #include <stdio.h>
+#include <sched.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -23,7 +24,7 @@ int LOGGING_INTERVAL;
 int LOGGING_ENABLED;
 char LOGGING_FILE_NAME[256];
 
-unsigned long long packet_counter = 0;
+unsigned long long int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 Queue **queues = NULL;
 
@@ -41,8 +42,41 @@ struct WorkerArgs {
     int bufferSize;
 };
 
+typedef struct {
+    int udpSocket;
+    Queue **queues;
+    int MAX_THREADS;
+    int MAX_MESSAGE_SIZE;
+    int LOGGING_ENABLED;
+    const char *LOGGING_FILE_NAME;
+    pthread_mutex_t *packet_counter_mutex;
+    unsigned long long int *packet_counter;
+} UdpServerArgs;
+
+// Prototypes
+//void udp_server_loop(int udpSocket, Queue **queues, int MAX_THREADS, int MAX_MESSAGE_SIZE, int LOGGING_ENABLED, const char *LOGGING_FILE_NAME, pthread_mutex_t *packet_counter_mutex, int *packet_counter);
 void *logging_thread(void *arg);
 
+void *thread_start(void *arg) {
+    // Set CPU affinity for this thread to CPU 0
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(0, &cpuset);
+
+    pthread_t current_thread = pthread_self();
+    if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset) != 0) {
+        perror("pthread_setaffinity_np");
+        return NULL;
+    }
+
+    // Cast the argument back to its original type
+    UdpServerArgs *args = (UdpServerArgs *)arg;
+
+    // Perform the actual udp_server_loop() call
+    udp_server_loop(args->udpSocket, args->queues, args->MAX_THREADS, args->MAX_MESSAGE_SIZE, args->LOGGING_ENABLED, args->LOGGING_FILE_NAME, args->packet_counter_mutex, args->packet_counter);
+
+    return NULL;
+}
 
 /**
  * Entry point of the CStatsDProxy server application.
@@ -92,9 +126,11 @@ int main() {
 
     pthread_t threads[MAX_THREADS];
     struct WorkerArgs args[MAX_THREADS];
-    queues = malloc(sizeof(Queue*) * MAX_THREADS);
+    queues = malloc(sizeof(Queue*) * MAX_QUEUE_SIZE);
 
     for (int i = 0; i < MAX_THREADS; ++i) {
+        cpu_set_t cpuset;  // Declare the CPU set object
+
         queues[i] = initQueue(MAX_QUEUE_SIZE);
         args[i].queue = queues[i];
         args[i].udpSocket = sharedUdpSocket;
@@ -102,6 +138,13 @@ int main() {
         args[i].workerID = i;
         args[i].bufferSize = BUFFER_SIZE;
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
+
+        CPU_ZERO(&cpuset);
+        CPU_SET(i, &cpuset);
+
+        if (pthread_setaffinity_np(threads[i], sizeof(cpu_set_t), &cpuset) != 0) {
+            perror("pthread_setaffinity_np");
+        }
     }
 
     if (LOGGING_ENABLED) {
@@ -110,7 +153,24 @@ int main() {
         pthread_create(&log_thread, NULL, logging_thread, args);
     }
 
-    udp_server_loop(udpSocket, queues, MAX_THREADS, MAX_MESSAGE_SIZE, LOGGING_ENABLED, LOGGING_FILE_NAME, &packet_counter_mutex, &packet_counter);
+
+    pthread_t thread;
+    UdpServerArgs argz;
+    argz.udpSocket = udpSocket;
+    argz.queues = queues;
+    argz.MAX_THREADS = MAX_THREADS;
+    argz.MAX_MESSAGE_SIZE = MAX_MESSAGE_SIZE;
+    argz.LOGGING_ENABLED = LOGGING_ENABLED;
+    argz.LOGGING_FILE_NAME = LOGGING_FILE_NAME;
+    argz.packet_counter_mutex = &packet_counter_mutex;
+    argz.packet_counter = &packet_counter;
+
+    if (pthread_create(&thread, NULL, thread_start, &argz) != 0) {
+        perror("pthread_create");
+        return 1;
+    }
+
+    //udp_server_loop(udpSocket, queues, MAX_THREADS, MAX_MESSAGE_SIZE, LOGGING_ENABLED, LOGGING_FILE_NAME, &packet_counter_mutex, &packet_counter);
 
     // Cleanup - although you'd typically never reach here in an infinite loop server.
     for (int i = 0; i < MAX_THREADS; ++i) {
@@ -163,7 +223,7 @@ void *logging_thread(void *arg) {
             write_log(LOGGING_FILE_NAME, "Packets Since Last Logging: %llu", packet_counter);
             // Create a StatsD metric string
             char *statsd_metric = malloc(256); // Allocate enough space for the metric
-            snprintf(statsd_metric, 256, "stats.CStatsDProxy.logging_interval.packetsreceived:%llu|c", packet_counter);
+            snprintf(statsd_metric, 256, "stats.CStatsDProxy.logging_interval.packetsreceived:%11lli|c", packet_counter);
 
             // Enqueue the StatsD metric to the worker's queue at index 1
             enqueue(queues[1], statsd_metric);

@@ -13,7 +13,7 @@ int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *a
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
     if (udpSocket == -1) {
-        write_log(logging_file_name, "Socket creation failed");
+        write_log(logging_file_name, "Shared Socket creation failed");
         return -1;
     }
 
@@ -48,7 +48,7 @@ int initialize_listener_udp_socket(const char *ip, int port, struct sockaddr_in 
     return udpSocket;
 }
 
-void udp_server_loop(int udpSocket, Queue **queues, int max_threads, int max_message_size, int logging_enabled, const char *logging_file_name, pthread_mutex_t *packet_counter_mutex, long long unsigned int *packet_counter) {
+void udp_server_loop(int udpSocket, Queue **queues, int max_threads, int max_message_size, int logging_enabled, const char *logging_file_name, pthread_mutex_t *packet_counter_mutex, unsigned long long *packet_counter) {
     int RoundRobinCounter = 0;
     while (1) {
         char *buffer = malloc(max_message_size);
