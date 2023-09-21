@@ -53,9 +53,9 @@ void *worker_thread(void *arg) {
 
     int statsCount = 0;
 
-    char *batchBuffer[100];
+    char *batchBuffer[1000];
     int bufferIndex = 0;
-    int processBatchSize = 100;  // Define how many items to process before sending
+    int processBatchSize = 1000;  // Define how many items to process before sending
 
     while (1) {
         if (bufferIndex < processBatchSize) {
