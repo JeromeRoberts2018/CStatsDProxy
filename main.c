@@ -1,6 +1,5 @@
 // main.c
 #include <stdio.h>
-#include <sched.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -58,16 +57,6 @@ typedef struct {
 void *logging_thread(void *arg);
 
 void *thread_start(void *arg) {
-    // Set CPU affinity for this thread to CPU 0
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(0, &cpuset);
-
-    pthread_t current_thread = pthread_self();
-    if (pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset) != 0) {
-        perror("pthread_setaffinity_np");
-        return NULL;
-    }
 
     // Cast the argument back to its original type
     UdpServerArgs *args = (UdpServerArgs *)arg;
@@ -129,8 +118,6 @@ int main() {
     queues = malloc(sizeof(Queue*) * MAX_QUEUE_SIZE);
 
     for (int i = 0; i < MAX_THREADS; ++i) {
-        cpu_set_t cpuset;  // Declare the CPU set object
-
         queues[i] = initQueue(MAX_QUEUE_SIZE);
         args[i].queue = queues[i];
         args[i].udpSocket = sharedUdpSocket;
@@ -138,13 +125,6 @@ int main() {
         args[i].workerID = i;
         args[i].bufferSize = BUFFER_SIZE;
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
-
-        CPU_ZERO(&cpuset);
-        CPU_SET(i, &cpuset);
-
-        if (pthread_setaffinity_np(threads[i], sizeof(cpu_set_t), &cpuset) != 0) {
-            perror("pthread_setaffinity_np");
-        }
     }
 
     if (LOGGING_ENABLED) {
