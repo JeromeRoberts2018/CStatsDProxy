@@ -237,7 +237,7 @@ void *logging_thread(void *arg) {
             write_log(LOGGING_FILE_NAME, "Packets Since Last Logging: %llu", packet_counter);
             // Create a StatsD metric string
             char *statsd_metric = malloc(256); // Allocate enough space for the metric
-            snprintf(statsd_metric, 256, "stats.CStatsDProxy.logging_interval.packetsreceived:%lld|c", packet_counter);
+            snprintf(statsd_metric, 256, "CStatsDProxy.logging_interval.packetsreceived:%llu|c", packet_counter);
 
             // Enqueue the StatsD metric to the worker's queue at index 1
             enqueue(queues[1], statsd_metric);

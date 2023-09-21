@@ -58,6 +58,7 @@ void *worker_thread(void *arg) {
     int processBatchSize = 1000;  // Define how many items to process before sending
 
     while (1) {
+        // Dequeue messages into a batch buffer until it reaches the batch size
         if (bufferIndex < processBatchSize) {
             char *buffer = dequeue(queue);
             if (buffer != NULL) {
@@ -66,65 +67,27 @@ void *worker_thread(void *arg) {
             continue;
         }
 
-        struct Stats stats[bufferSize];
-        for (int i = 0; i < bufferSize; i++) {
-            stats[i].value = 0;
-        }
-
+        // Send the batched data
         for (int i = 0; i < processBatchSize; ++i) {
             char *buffer = batchBuffer[i];
-            char *key, *valueStr, *type;
-            int value;
-            //char *savePtr1;
+            if (buffer != NULL) { // Add this check to be safe
+                ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
 
-            //key = strtok_r(buffer, ":", &savePtr1);
-            //valueStr = strtok_r(NULL, "|", &savePtr1);
-            //type = strtok_r(NULL, "|", &savePtr1);
-            fast_tokenize(buffer, &key, &valueStr, &type);
-
-            if (key && valueStr && type) {
-                value = atoi(valueStr);
-
-                int found = 0;
-                for (int j = 0; j < statsCount; j++) {
-                    if (strcmp(stats[j].key, key) == 0 && strcmp(stats[j].type, type) == 0) {
-                        stats[j].value += value;
-                        found = 1;
-                        break;
-                    }
-                }
-
-                if (!found) {
-                    strncpy(stats[statsCount].key, key, sizeof(stats[statsCount].key));
-                    strncpy(stats[statsCount].type, type, sizeof(stats[statsCount].type));
-                    stats[statsCount].value = value;
-                    statsCount++;
-                }
-            }
-
-            free(buffer);
-        }
-
-        // Send the processed data
-        for (int i = 0; i < statsCount; i++) {
-            if (stats[i].value != 0) {
-                char sendBuffer[bufferSize];
-                snprintf(sendBuffer, sizeof(sendBuffer), "%s:%d|%s", stats[i].key, stats[i].value, stats[i].type);
-
-                ssize_t sentBytes = sendto(udpSocket, sendBuffer, strlen(sendBuffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
+                // If sending fails, re-queue the buffer to be sent later
                 if (sentBytes == -1) {
-                    perror("sendto");
+                    //perror("Requeue message, send failed");
+                    enqueue(queue, buffer);  // Re-queue the message to be sent later
+                    // don't requeue locally, could result in failure loop
+                } else {
+                    free(buffer);
                 }
             }
         }
 
-        // Reset the stats and batch buffer index
-        for (int i = 0; i < statsCount; i++) {
-            stats[i].value = 0;
-        }
-        statsCount = 0;
+        // Reset the batch buffer index to zero for the next round of batching
         bufferIndex = 0;
     }
+
 
     return NULL;
 }
