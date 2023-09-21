@@ -9,7 +9,7 @@
 #include "lib/worker.h"
 #include "lib/logger.h"
 #include "lib/config_reader.h"
-#include "lib/udp_server.h"
+
 
 int UDP_PORT;
 char LISTEN_UDP_IP[16];
@@ -26,6 +26,7 @@ char LOGGING_FILE_NAME[256];
 unsigned long long int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 Queue **queues = NULL;
+Queue *inbound_queue = NULL;
 
 struct Stats {
     char key[256];
@@ -41,30 +42,51 @@ struct WorkerArgs {
     int bufferSize;
 };
 
-typedef struct {
-    int udpSocket;
-    Queue **queues;
-    int MAX_THREADS;
-    int MAX_MESSAGE_SIZE;
-    int LOGGING_ENABLED;
-    const char *LOGGING_FILE_NAME;
-    pthread_mutex_t *packet_counter_mutex;
-    unsigned long long int *packet_counter;
-} UdpServerArgs;
+
 
 // Prototypes
 //void udp_server_loop(int udpSocket, Queue **queues, int MAX_THREADS, int MAX_MESSAGE_SIZE, int LOGGING_ENABLED, const char *LOGGING_FILE_NAME, pthread_mutex_t *packet_counter_mutex, int *packet_counter);
 void *logging_thread(void *arg);
 
-void *thread_start(void *arg) {
-    
-    // Cast the argument back to its original type
-    UdpServerArgs *args = (UdpServerArgs *)arg;
 
-    // Perform the actual udp_server_loop() call
-    udp_server_loop(args->udpSocket, args->queues, args->MAX_THREADS, args->MAX_MESSAGE_SIZE, args->LOGGING_ENABLED, args->LOGGING_FILE_NAME, args->packet_counter_mutex, args->packet_counter);
+// Initialize a shared UDP socket for sending data
+int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *address, const char *logging_file_name) {
+    int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
-    return NULL;
+    if (udpSocket == -1) {
+        write_log(logging_file_name, "Shared Socket creation failed");
+        return -1;
+    }
+
+    address->sin_family = AF_INET;
+    address->sin_port = htons(port);
+    address->sin_addr.s_addr = inet_addr(ip);
+
+    return udpSocket;
+}
+
+// Initialize a UDP socket for listening
+int initialize_listener_udp_socket(const char *ip, int port, struct sockaddr_in *address, const char *logging_file_name) {
+    int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    address->sin_family = AF_INET;
+    address->sin_port = htons(port);
+
+    if (strcmp(ip, "0.0.0.0") == 0) {
+        address->sin_addr.s_addr = htonl(INADDR_ANY);
+    } else {
+        if (inet_pton(AF_INET, ip, &(address->sin_addr)) <= 0) {
+            write_log(logging_file_name, "Invalid IP address: %s", ip);
+            return -1;
+        }
+    }
+
+    if (bind(udpSocket, (struct sockaddr *)address, sizeof(*address)) < 0) {
+        write_log(logging_file_name, "Bind failed");
+        perror("Bind failed");
+        return -1;
+    }
+
+    return udpSocket;
 }
 
 /**
@@ -133,28 +155,33 @@ int main() {
         pthread_create(&log_thread, NULL, logging_thread, args);
     }
 
+    inbound_queue = malloc(sizeof(Queue*) * MAX_QUEUE_SIZE);
+    inbound_queue = initQueue(MAX_QUEUE_SIZE);
+    int RoundRobinCounter = 0;
 
-    pthread_t thread;
-    UdpServerArgs argz;
-    argz.udpSocket = udpSocket;
-    argz.queues = queues;
-    argz.MAX_THREADS = MAX_THREADS;
-    argz.MAX_MESSAGE_SIZE = MAX_MESSAGE_SIZE;
-    argz.LOGGING_ENABLED = LOGGING_ENABLED;
-    argz.LOGGING_FILE_NAME = LOGGING_FILE_NAME;
-    argz.packet_counter_mutex = &packet_counter_mutex;
-    argz.packet_counter = &packet_counter;
+    while (1) {
+        char *buffer = malloc(MAX_MESSAGE_SIZE);
+        struct sockaddr_in clientAddr;
+        socklen_t addrSize = sizeof(clientAddr);
+        ssize_t recvLen = recvfrom(udpSocket, buffer, MAX_MESSAGE_SIZE - 1, 0, (struct sockaddr *)&clientAddr, &addrSize);
 
-    if (pthread_create(&thread, NULL, thread_start, &argz) != 0) {
-        perror("pthread_create");
-        return 1;
-    }
-    while (1)
-    {
-        /* 
-        Leave main thread to do nothing, just idling.
-         */
-        sleep(5);
+        if (recvLen > 0) {
+            buffer[recvLen] = '\0';
+            enqueue(queues[RoundRobinCounter], buffer);
+            RoundRobinCounter = (RoundRobinCounter + 1) % MAX_THREADS;
+
+            if (LOGGING_ENABLED) {
+                pthread_mutex_lock(&packet_counter_mutex);
+                packet_counter++;
+                pthread_mutex_unlock(&packet_counter_mutex);
+            }
+        } else if (recvLen == 0) {
+            if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "Received zero bytes. Connection closed or terminated."); }
+            free(buffer);
+        } else {
+            if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "recvfrom() returned an error: %zd", recvLen); }
+            free(buffer);
+        }
     }
     
     //udp_server_loop(udpSocket, queues, MAX_THREADS, MAX_MESSAGE_SIZE, LOGGING_ENABLED, LOGGING_FILE_NAME, &packet_counter_mutex, &packet_counter);

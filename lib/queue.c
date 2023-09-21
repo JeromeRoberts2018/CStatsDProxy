@@ -32,7 +32,7 @@ Queue* initQueue(int maxSize) {
 void enqueue(Queue *queue, void *data) {
     pthread_mutex_lock(&queue->mutex);
     if (queue->currentSize >= queue->maxSize) {
-        printf("Queue is full. Dropping packet.\n");
+        printf("Queue is full. Dropping packet. %d\n", queue->maxSize);
         pthread_mutex_unlock(&queue->mutex);
         return;
     }
