@@ -57,7 +57,7 @@ typedef struct {
 void *logging_thread(void *arg);
 
 void *thread_start(void *arg) {
-
+    
     // Cast the argument back to its original type
     UdpServerArgs *args = (UdpServerArgs *)arg;
 
@@ -149,7 +149,14 @@ int main() {
         perror("pthread_create");
         return 1;
     }
-
+    while (1)
+    {
+        /* 
+        Leave main thread to do nothing, just idling.
+         */
+        sleep(5);
+    }
+    
     //udp_server_loop(udpSocket, queues, MAX_THREADS, MAX_MESSAGE_SIZE, LOGGING_ENABLED, LOGGING_FILE_NAME, &packet_counter_mutex, &packet_counter);
 
     // Cleanup - although you'd typically never reach here in an infinite loop server.
