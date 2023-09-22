@@ -6,7 +6,6 @@
 #include <pthread.h>
 #include "queue.h"
 #include "worker.h"
-#include "global.h"
 
 struct WorkerArgs {
     Queue *queue;
@@ -15,6 +14,14 @@ struct WorkerArgs {
     int workerID;
     int bufferSize;
 };
+
+void safeFree(void **pp) {
+    if (*pp != NULL) {
+        free(*pp);
+        *pp = NULL;
+    }
+}
+
 
 void *worker_thread(void *arg) {
     struct WorkerArgs *args = (struct WorkerArgs *)arg;
