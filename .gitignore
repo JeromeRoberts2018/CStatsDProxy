@@ -16,6 +16,8 @@
 *.swp
 *.swo
 *.log
+*.workspace
+*.s
 
 # Visual Studio Code files
 .vscode/

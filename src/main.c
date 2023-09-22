@@ -26,13 +26,6 @@ char LOGGING_FILE_NAME[256];
 unsigned long long int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 Queue **queues = NULL;
-Queue *inbound_queue = NULL;
-
-struct Stats {
-    char key[256];
-    char type[4];
-    int value;
-};
 
 struct WorkerArgs {
     Queue *queue;
@@ -42,14 +35,8 @@ struct WorkerArgs {
     int bufferSize;
 };
 
-
-
-// Prototypes
-//void udp_server_loop(int udpSocket, Queue **queues, int MAX_THREADS, int MAX_MESSAGE_SIZE, int LOGGING_ENABLED, const char *LOGGING_FILE_NAME, pthread_mutex_t *packet_counter_mutex, int *packet_counter);
 void *logging_thread(void *arg);
 
-
-// Initialize a shared UDP socket for sending data
 int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *address, const char *logging_file_name) {
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -65,7 +52,6 @@ int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *a
     return udpSocket;
 }
 
-// Initialize a UDP socket for listening
 int initialize_listener_udp_socket(const char *ip, int port, struct sockaddr_in *address, const char *logging_file_name) {
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
     address->sin_family = AF_INET;
@@ -89,25 +75,6 @@ int initialize_listener_udp_socket(const char *ip, int port, struct sockaddr_in 
     return udpSocket;
 }
 
-/**
- * Entry point of the CStatsDProxy server application.
- * In summary, this function sets up worker threads to process the data, a logging thread to log statistics, and a main loop to receive and enqueue data.
- *
- * Upon startup, the function:
- * - Reads the configuration file and validates it.
- * - Initializes a shared UDP socket and destination address.
- * - Initializes a queue.
- * - Spawns worker threads and optionally, a logging thread.
- *
- * Once the setup is complete, it enters an infinite loop, where it:
- * - Waits for incoming UDP packets.
- * - Enqueues received packets into the shared queue.
- * - Updates packet counters if logging is enabled.
- *
- * In case of failure at various stages (e.g., bind failure, invalid IP, config read failure), appropriate log messages are generated.
- *
- * @return Returns 1 if the configuration file could not be read; otherwise, the function runs indefinitely and does not return.
- */
 int main() {
     printf("Starting CStatsDProxy server...\n");
 
@@ -123,8 +90,6 @@ int main() {
         write_log(LOGGING_FILE_NAME, "Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
         write_log(LOGGING_FILE_NAME, "Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
     }
-
-    //Queue *queue = initQueue(MAX_QUEUE_SIZE);
 
     struct sockaddr_in destAddr, serverAddr;
     int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr, LOGGING_FILE_NAME);
@@ -154,9 +119,7 @@ int main() {
         pthread_t log_thread;
         pthread_create(&log_thread, NULL, logging_thread, args);
     }
-
-    inbound_queue = malloc(sizeof(Queue*) * MAX_QUEUE_SIZE);
-    inbound_queue = initQueue(MAX_QUEUE_SIZE);
+    
     int RoundRobinCounter = 0;
 
     while (1) {
@@ -183,10 +146,7 @@ int main() {
             free(buffer);
         }
     }
-    
-    //udp_server_loop(udpSocket, queues, MAX_THREADS, MAX_MESSAGE_SIZE, LOGGING_ENABLED, LOGGING_FILE_NAME, &packet_counter_mutex, &packet_counter);
 
-    // Cleanup - although you'd typically never reach here in an infinite loop server.
     for (int i = 0; i < MAX_THREADS; ++i) {
         pthread_cancel(threads[i]);
         pthread_join(threads[i], NULL);
@@ -198,24 +158,6 @@ int main() {
     return 0;
 }
 
-/**
- * Acts as a logging thread that periodically writes status information to a log file.
- * This function is designed to run as a separate thread and logs information about worker queues and packet counts.
- *
- * The function fetches arguments from a WorkerArgs structure and logs the following:
- * - The current size of each worker's queue.
- * - The number of packets processed since the last logging interval.
- *
- * Logging is controlled by the following global variables:
- * - LOGGING_INTERVAL: The time interval (in seconds) between each log.
- * - LOGGING_FILE_NAME: The name of the file where logs are written.
- * - MAX_THREADS: The maximum number of worker threads.
- * 
- * The function uses mutexes to ensure thread-safe access to shared resources.
- *
- * @param arg A pointer to an array of WorkerArgs structures. Each structure contains a queue and a workerID.
- * @return This function returns NULL as it is designed to run indefinitely.
- */
 void *logging_thread(void *arg) {
     struct WorkerArgs *workerArgs = (struct WorkerArgs *) arg;
     int numWorkers = MAX_THREADS;
@@ -241,6 +183,7 @@ void *logging_thread(void *arg) {
 
             // Enqueue the StatsD metric to the worker's queue at index 1
             enqueue(queues[1], statsd_metric);
+            free(statsd_metric);
         }        
         packet_counter = 0;
         pthread_mutex_unlock(&packet_counter_mutex);

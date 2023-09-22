@@ -1,11 +1,14 @@
 # Output executable name
-TARGET = CStatsDProxy
+TARGET = bin/CStatsDProxy
+INCLUDES = -I./ -I./lib
+BASE_DIR = ./
+DEFINES = -DBASE_DIR=\"$(BASE_DIR)\"
 
 # Installation directory
 INSTALL_DIR = /usr/sbin
 
 # Source files and object files
-SRC = main.c lib/logger.c lib/config_reader.c lib/queue.c lib/worker.c
+SRC = src/main.c lib/logger.c lib/config_reader.c lib/queue.c lib/worker.c
 OBJ = $(SRC:.c=.o)
 
 # Compiler and linker
@@ -13,7 +16,7 @@ CC = gcc
 LD = gcc
 
 # Compiler and linker flags
-CFLAGS = -Wall -c
+CFLAGS = -Wall -c -std=gnu99 -D_GNU_SOURCE
 LDFLAGS = -lpthread
 
 # Build rules
@@ -23,14 +26,14 @@ $(TARGET): $(OBJ)
 	$(LD) $(OBJ) -o $(TARGET) $(LDFLAGS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $(INCLUDES) $(DEFINES) -c $< -o $@
 
 install: all
 	@if [ "$$(id -u)" -ne 0 ]; then \
 		echo "You must be root to install."; \
 		exit 1; \
 	fi
-	mv CStatsDProxy $(INSTALL_DIR)
+	mv bin/CStatsDProxy $(INSTALL_DIR)
 	useradd -r -s /bin/false CStatsDProxy
 	mkdir -p /var/log/CStatsDProxy
 	chown CStatsDProxy:CStatsDProxy /var/log/CStatsDProxy
