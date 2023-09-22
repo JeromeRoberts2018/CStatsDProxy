@@ -21,10 +21,18 @@ void *worker_thread(void *arg) {
     int udpSocket = args->udpSocket;
     struct sockaddr_in destAddr = args->destAddr;
 
+    struct sockaddr_in cloneDestAddr;
+    cloneDestAddr.sin_family = AF_INET;
+    cloneDestAddr.sin_port = htons(CLONE_DEST_UDP_PORT);
+    inet_aton(CLONE_DEST_UDP_IP, &cloneDestAddr.sin_addr);
+
     while (1) {
         char *buffer = dequeue(queue);
         if (buffer != NULL) {
             ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
+            if (CLONE_ENABLED) {
+                sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
+            }
             if (sentBytes == -1) {
                 enqueue(queue, buffer);
             } else {

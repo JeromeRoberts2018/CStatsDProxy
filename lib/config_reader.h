@@ -13,5 +13,8 @@ extern int MAX_QUEUE_SIZE;
 extern int LOGGING_INTERVAL;
 extern int LOGGING_ENABLED;
 extern char LOGGING_FILE_NAME[256];
+extern int CLONE_ENABLED;
+extern int CLONE_DEST_UDP_PORT;
+extern char CLONE_DEST_UDP_IP[50];
 
 #endif // CONFIG_READER_H

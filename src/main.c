@@ -22,6 +22,9 @@ int MAX_QUEUE_SIZE;
 int LOGGING_INTERVAL;
 int LOGGING_ENABLED;
 char LOGGING_FILE_NAME[256];
+int CLONE_ENABLED = 0;
+int CLONE_DEST_UDP_PORT = 0;
+char CLONE_DEST_UDP_IP[50];
 
 unsigned long long int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -85,10 +88,16 @@ int main() {
 
     printf("Starting server on %s:%d\n", LISTEN_UDP_IP, UDP_PORT);
     printf("Forwarding to %s:%d\n", DEST_UDP_IP, DEST_UDP_PORT);
+    if (CLONE_ENABLED) {
+        printf("Cloning to %s:%d\n", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
+    }
 
     if (LOGGING_ENABLED) {
         write_log(LOGGING_FILE_NAME, "Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
         write_log(LOGGING_FILE_NAME, "Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
+        if (CLONE_ENABLED) {
+            write_log(LOGGING_FILE_NAME, "Cloning to %s:%d", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
+        }
     }
 
     struct sockaddr_in destAddr, serverAddr;
