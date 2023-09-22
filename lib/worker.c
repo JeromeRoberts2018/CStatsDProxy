@@ -22,7 +22,6 @@ void safeFree(void **pp) {
     }
 }
 
-
 void *worker_thread(void *arg) {
     struct WorkerArgs *args = (struct WorkerArgs *)arg;
     Queue *queue = args->queue;
@@ -34,21 +33,35 @@ void *worker_thread(void *arg) {
     cloneDestAddr.sin_port = htons(CLONE_DEST_UDP_PORT);
     inet_aton(CLONE_DEST_UDP_IP, &cloneDestAddr.sin_addr);
 
+    int cloneUdpSocket = -1;
+    if (CLONE_ENABLED) {
+        cloneUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+        if (cloneUdpSocket < 0) {
+            perror("Could not create clone socket");
+            exit(1);
+        }
+    }
+
     while (1) {
         char *buffer = dequeue(queue);
         if (buffer != NULL) {
             ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
 
             if (sentBytes == -1) {
-                char *statsd_metric = strdup("CStatsDProxy.logging_interval.packetslost:1|c");
-                enqueue(queue, statsd_metric);
+                //char *statsd_metric = strdup("CStatsDProxy.logging_interval.packetslost:1|c");
+                //enqueue(queue, statsd_metric);
             } else {
                 if (CLONE_ENABLED) {
-                    sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
+                    sendto(cloneUdpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
                 }
             }
             safeFree((void**)&buffer);
         }
     }
+
+    if (cloneUdpSocket != -1) {
+        close(cloneUdpSocket);
+    }
+
     return NULL;
 }
