@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include "queue.h"
 #include "worker.h"
+#include "global.h"
 
 struct WorkerArgs {
     Queue *queue;
@@ -30,14 +31,16 @@ void *worker_thread(void *arg) {
         char *buffer = dequeue(queue);
         if (buffer != NULL) {
             ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
-            if (CLONE_ENABLED) {
-                sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
-            }
+
             if (sentBytes == -1) {
-                enqueue(queue, buffer);
+                char *statsd_metric = strdup("CStatsDProxy.logging_interval.packetslost:1|c");
+                enqueue(queue, statsd_metric);
             } else {
-                free(buffer);
+                if (CLONE_ENABLED) {
+                    sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
+                }
             }
+            safeFree((void**)&buffer);
         }
     }
     return NULL;
