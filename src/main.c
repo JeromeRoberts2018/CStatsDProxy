@@ -85,12 +85,6 @@ int main() {
         return 1;
     }
 
-    printf("Starting server on %s:%d\n", LISTEN_UDP_IP, UDP_PORT);
-    printf("Forwarding to %s:%d\n", DEST_UDP_IP, DEST_UDP_PORT);
-    if (CLONE_ENABLED) {
-        printf("Cloning to %s:%d\n", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
-    }
-
     if (LOGGING_ENABLED) {
         write_log("Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
         write_log("Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);

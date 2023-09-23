@@ -35,8 +35,6 @@ install: all
 	fi
 	mv bin/CStatsDProxy $(INSTALL_DIR)
 	useradd -r -s /bin/false CStatsDProxy
-	mkdir -p /var/log/CStatsDProxy
-	chown CStatsDProxy:CStatsDProxy /var/log/CStatsDProxy
 	cp CStatsDProxy.service /etc/systemd/system/
 	systemctl daemon-reload
 	systemctl enable CStatsDProxy

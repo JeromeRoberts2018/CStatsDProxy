@@ -37,7 +37,7 @@ After compiling, run the program with can be run directly without issue, or you 
 
 ## Troubleshooting
 
-If you encounter issues with the proxy, refer to the log files located in `/var/log/CStatsDProxy/`. Common issues and solutions will be listed here as they are identified.
+All logging is performed to stdout
 
 ## Contributing
 
