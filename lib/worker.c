@@ -33,21 +33,32 @@ void *worker_thread(void *arg) {
     cloneDestAddr.sin_port = htons(CLONE_DEST_UDP_PORT);
     inet_aton(CLONE_DEST_UDP_IP, &cloneDestAddr.sin_addr);
 
+
     Packet packet;  // Use Packet struct for handling data
+    int cloneUdpSocket = -1;
+    if (CLONE_ENABLED) {
+        cloneUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+        if (cloneUdpSocket < 0) {
+            perror("Could not create clone socket");
+            exit(1);
+        }
+    }
 
     while (1) {
-        if (atmDequeue(queue, &packet)) {  // Update to use atmDequeue
+        if (atmDequeue(queue, &packet)) {
             ssize_t sentBytes = sendto(udpSocket, packet.packet_data, strlen(packet.packet_data), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
-
             if (sentBytes == -1) {
-                atmEnqueue(queue, "CStatsDProxy.logging_interval.packetslost:1|c");  // No need to manually populate Packet
+                atmEnqueue(queue, "CStatsDProxy.logging_interval.packetslost:1|c"); 
             } else {
                 if (CLONE_ENABLED) {
-                    sendto(udpSocket, packet.packet_data, strlen(packet.packet_data), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
+                    sendto(cloneUdpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
                 }
             }
-            // No need to free packet.packet_data as it's a statically allocated array within the struct.
         }
+    }
+
+    if (cloneUdpSocket != -1) {
+        close(cloneUdpSocket);
     }
 
     return NULL;

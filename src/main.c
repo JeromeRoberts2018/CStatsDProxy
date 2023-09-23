@@ -22,8 +22,8 @@ int MAX_QUEUE_SIZE;
 int LOGGING_INTERVAL;
 int LOGGING_ENABLED;
 char LOGGING_FILE_NAME[256];
-int CLONE_ENABLED = 0;
-int CLONE_DEST_UDP_PORT = 0;
+int CLONE_ENABLED;
+int CLONE_DEST_UDP_PORT;
 char CLONE_DEST_UDP_IP[50];
 
 unsigned long long int packet_counter = 0;
