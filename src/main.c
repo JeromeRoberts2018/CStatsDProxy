@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include "lib/queue.h"
+#include "lib/atomic.h"
 #include "lib/worker.h"
 #include "lib/logger.h"
 #include "lib/config_reader.h"
@@ -28,10 +28,10 @@ char CLONE_DEST_UDP_IP[50];
 
 unsigned long long int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
-Queue **queues = NULL;
+AtomicQueue **queues = NULL;
 
 struct WorkerArgs {
-    Queue *queue;
+    AtomicQueue *queue;
     int udpSocket;
     struct sockaddr_in destAddr;
     int workerID;
@@ -111,10 +111,11 @@ int main() {
 
     pthread_t threads[MAX_THREADS];
     struct WorkerArgs args[MAX_THREADS];
-    queues = malloc(sizeof(Queue*) * MAX_QUEUE_SIZE);
+    queues = malloc(sizeof(AtomicQueue*) * MAX_QUEUE_SIZE);
 
     for (int i = 0; i < MAX_THREADS; ++i) {
-        queues[i] = initQueue(MAX_QUEUE_SIZE);
+        queues[i] = malloc(sizeof(AtomicQueue));
+        atmInitQueue(queues[i]);
         args[i].queue = queues[i];
         args[i].udpSocket = sharedUdpSocket;
         args[i].destAddr = destAddr;
@@ -138,8 +139,7 @@ int main() {
         ssize_t recvLen = recvfrom(udpSocket, buffer, MAX_MESSAGE_SIZE - 1, 0, (struct sockaddr *)&clientAddr, &addrSize);
 
         if (recvLen > 0) {
-            buffer[recvLen] = '\0';
-            enqueue(queues[RoundRobinCounter], buffer);
+            atmEnqueue(queues[RoundRobinCounter], buffer);
             RoundRobinCounter = (RoundRobinCounter + 1) % MAX_THREADS;
 
             if (LOGGING_ENABLED) {
@@ -175,28 +175,23 @@ void *logging_thread(void *arg) {
         sleep(LOGGING_INTERVAL);
 
         for (int i = 0; i < numWorkers; ++i) {
-            Queue *queue = workerArgs[i].queue;
-            pthread_mutex_lock(&queue->mutex);
-            if (queue->currentSize > 0) { 
-                write_log(LOGGING_FILE_NAME, "WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
+            AtomicQueue *queue = workerArgs[i].queue;
+            if (atmQueueSize(queue) > 0) {  
+                write_log(LOGGING_FILE_NAME, "WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, atmQueueSize(queue));
             }
-            pthread_mutex_unlock(&queue->mutex);
         }
         
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 0) {
             write_log(LOGGING_FILE_NAME, "Packets Since Last Logging: %llu", packet_counter);
-            // Create a StatsD metric string
-            char *statsd_metric = malloc(256); // Allocate enough space for the metric
-            snprintf(statsd_metric, 256, "CStatsDProxy.logging_interval.packetsreceived:%llu|c", packet_counter);
-
-            // Enqueue the StatsD metric to the worker's queue at index 1
-            enqueue(queues[1], statsd_metric);
-            free(statsd_metric);
+            char statsd_metric[256]; 
+            snprintf(statsd_metric, sizeof(statsd_metric), "CStatsDProxy.logging_interval.packetsreceived:%llu|c", packet_counter);
+            
+            // Enqueue the StatsD metric to the atomic queue of the worker at index 1
+            atmEnqueue(workerArgs[1].queue, statsd_metric);
         }        
         packet_counter = 0;
         pthread_mutex_unlock(&packet_counter_mutex);
-
     }
 
     return NULL;

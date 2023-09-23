@@ -2,15 +2,16 @@
 
 ## Overview
 
-CStatsDProxy is a high-performance, multithreaded StatsD proxy written in C. The primary purpose of this proxy is to act as an intermediary service that takes in StatsD packets, queues them for processing, consolidates them, and forwards them to another StatsD service. This allows for effective load-balancing and increased efficiency in high-throughput environments.
+CStatsDProxy is a high-performance, multithreaded StatsD proxy written in C. The primary purpose of this proxy is to act as an intermediary service that takes in StatsD packets, queues them for processing, and forwards them to another StatsD service. This allows for effective load-balancing and increased efficiency in high-throughput environments.
 
 ## Features
 
 - Multithreaded architecture for handling multiple StatsD packets concurrently
 - Efficient queuing mechanism to handle bursts of incoming packets
-- Packet consolidation to minimize network overhead
 - Dynamic logging capabilities
 - Configurable settings via a configuration file
+- Clone Support, send 1 packet to 2 statsd servers
+
 
 ## Requirements
 

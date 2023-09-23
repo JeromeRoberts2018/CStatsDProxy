@@ -4,11 +4,11 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include "queue.h"
+#include "atomic.h"
 #include "worker.h"
 
 struct WorkerArgs {
-    Queue *queue;
+    AtomicQueue *queue;
     int udpSocket;
     struct sockaddr_in destAddr;
     int workerID;
@@ -24,7 +24,7 @@ void safeFree(void **pp) {
 
 void *worker_thread(void *arg) {
     struct WorkerArgs *args = (struct WorkerArgs *)arg;
-    Queue *queue = args->queue;
+    AtomicQueue *queue = args->queue;
     int udpSocket = args->udpSocket;
     struct sockaddr_in destAddr = args->destAddr;
 
@@ -43,19 +43,21 @@ void *worker_thread(void *arg) {
     }
 
     while (1) {
-        char *buffer = dequeue(queue);
-        if (buffer != NULL) {
+        Packet outPacket;
+        int dequeueStatus = atmDequeue(queue, &outPacket);
+        if (dequeueStatus) {
+            char *buffer = outPacket.packet_data;
             ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
 
             if (sentBytes == -1) {
-                //char *statsd_metric = strdup("CStatsDProxy.logging_interval.packetslost:1|c");
-                //enqueue(queue, statsd_metric);
+                char *statsd_metric = strdup("CStatsDProxy.logging_interval.packetslost:1|c");
+                atmEnqueue(queue, statsd_metric);
+                safeFree((void**)&statsd_metric);
             } else {
                 if (CLONE_ENABLED) {
                     sendto(cloneUdpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
                 }
             }
-            safeFree((void**)&buffer);
         }
     }
 
