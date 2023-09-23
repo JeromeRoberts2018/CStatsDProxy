@@ -149,10 +149,8 @@ int main() {
             }
         } else if (recvLen == 0) {
             if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "Received zero bytes. Connection closed or terminated."); }
-            free(buffer);
         } else {
             if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "recvfrom() returned an error: %zd", recvLen); }
-            free(buffer);
         }
     }
 
@@ -176,8 +174,12 @@ void *logging_thread(void *arg) {
 
         for (int i = 0; i < numWorkers; ++i) {
             AtomicQueue *queue = workerArgs[i].queue;
+            int currentQueueSize = atmQueueSize(queue);
             if (atmQueueSize(queue) > 0) {  
                 write_log(LOGGING_FILE_NAME, "WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, atmQueueSize(queue));
+                char queueInfoPacket[256];
+                snprintf(queueInfoPacket, sizeof(queueInfoPacket), "CStatsDProxy.logging_interval.Worker%dQueueSize:%d|c", workerArgs[i].workerID, currentQueueSize);
+                atmEnqueue(queue, queueInfoPacket);
             }
         }
         
