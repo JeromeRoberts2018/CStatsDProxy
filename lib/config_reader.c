@@ -86,6 +86,11 @@ int read_config(const char *filepath) {
         } else if (case_insensitive_compare(key, "CLONE_DEST_UDP_IP")) {
             strncpy(CLONE_DEST_UDP_IP, value, sizeof(CLONE_DEST_UDP_IP) - 1);
             CLONE_DEST_UDP_IP[sizeof(CLONE_DEST_UDP_IP) - 1] = '\0'; // Ensure null-termination
+        } else if (case_insensitive_compare(key, "LOGGING_LEVEL")) {
+            strncpy(LOGGING_LEVEL, value, sizeof(LOGGING_LEVEL) - 1);
+            LOGGING_LEVEL[sizeof(LOGGING_LEVEL) - 1] = '\0'; // Ensure null-termination
+        } else if (case_insensitive_compare(key, "LOGGING_TO_STATSD")) {
+            LOGGING_TO_STATSD = atoi(value);
         }
     }
 

@@ -12,11 +12,13 @@ extern int MAX_QUEUE_SIZE;
 extern int LOGGING_INTERVAL;
 extern int LOGGING_ENABLED;
 extern char LOGGING_FILE_NAME[256];
+extern char LOGGING_LEVEL[10];
+extern int LOGGING_TO_STATSD;
 
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
 
-void write_log(const char *filename, const char *format, ...);
+void write_log(const char *level, const char *format, ...);
 
 #endif // LOGGER_H

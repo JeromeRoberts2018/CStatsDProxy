@@ -25,6 +25,8 @@ char LOGGING_FILE_NAME[256];
 int CLONE_ENABLED;
 int CLONE_DEST_UDP_PORT;
 char CLONE_DEST_UDP_IP[50];
+char LOGGING_LEVEL[10];
+int LOGGING_TO_STATSD;
 
 unsigned long long int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -44,7 +46,7 @@ int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *a
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
     if (udpSocket == -1) {
-        write_log(logging_file_name, "Shared Socket creation failed");
+        write_log("ERROR", "Shared Socket creation failed");
         return -1;
     }
 
@@ -64,13 +66,13 @@ int initialize_listener_udp_socket(const char *ip, int port, struct sockaddr_in 
         address->sin_addr.s_addr = htonl(INADDR_ANY);
     } else {
         if (inet_pton(AF_INET, ip, &(address->sin_addr)) <= 0) {
-            write_log(logging_file_name, "Invalid IP address: %s", ip);
+            write_log("ERROR", "Invalid IP address: %s", ip);
             return -1;
         }
     }
 
     if (bind(udpSocket, (struct sockaddr *)address, sizeof(*address)) < 0) {
-        write_log(logging_file_name, "Bind failed");
+        write_log("ERROR", "Bind failed");
         perror("Bind failed");
         return -1;
     }
@@ -82,7 +84,7 @@ int main() {
     printf("Starting CStatsDProxy server...\n");
 
     if (read_config("conf/config.conf") == -1) {
-        write_log(LOGGING_FILE_NAME, "Failed to read configuration");
+        write_log("ERROR", "Failed to read configuration");
         return 1;
     }
 
@@ -92,13 +94,13 @@ int main() {
         printf("Cloning to %s:%d\n", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
     }
 
-    if (LOGGING_ENABLED) {
-        write_log(LOGGING_FILE_NAME, "Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
-        write_log(LOGGING_FILE_NAME, "Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
-        if (CLONE_ENABLED) {
-            write_log(LOGGING_FILE_NAME, "Cloning to %s:%d", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
-        }
+ 
+    write_log("INFO", "Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
+    write_log("INFO", "Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
+    if (CLONE_ENABLED) {
+        write_log("INFO", "Cloning to %s:%d", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
     }
+
 
     struct sockaddr_in destAddr, serverAddr;
     int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr, LOGGING_FILE_NAME);
@@ -125,7 +127,7 @@ int main() {
     }
 
     if (LOGGING_ENABLED) {
-        write_log(LOGGING_FILE_NAME, "Logging enabled");
+        write_log("INFO", "Logging enabled");
         pthread_t log_thread;
         pthread_create(&log_thread, NULL, logging_thread, args);
     }
@@ -148,11 +150,9 @@ int main() {
                 pthread_mutex_unlock(&packet_counter_mutex);
             }
         } else if (recvLen == 0) {
-            if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "Received zero bytes. Connection closed or terminated."); }
-            free(buffer);
+             write_log("ERROR", "Received zero bytes. Connection closed or terminated."); 
         } else {
-            if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "recvfrom() returned an error: %zd", recvLen); }
-            free(buffer);
+            write_log("ERROR", "recvfrom() returned an error: %zd", recvLen);
         }
     }
 
@@ -176,19 +176,26 @@ void *logging_thread(void *arg) {
 
         for (int i = 0; i < numWorkers; ++i) {
             AtomicQueue *queue = workerArgs[i].queue;
+            int currentQueueSize = atmQueueSize(queue);
             if (atmQueueSize(queue) > 0) {  
-                write_log(LOGGING_FILE_NAME, "WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, atmQueueSize(queue));
+                write_log("INFO", "WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, atmQueueSize(queue));
+                if (LOGGING_TO_STATSD) {
+                    char queueInfoPacket[256];
+                    snprintf(queueInfoPacket, sizeof(queueInfoPacket), "CStatsDProxy.logging_interval.Worker%dQueueSize:%d|c", workerArgs[i].workerID, currentQueueSize);
+                    atmEnqueue(queue, queueInfoPacket);    
+                }
             }
         }
         
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 0) {
-            write_log(LOGGING_FILE_NAME, "Packets Since Last Logging: %llu", packet_counter);
-            char statsd_metric[256]; 
-            snprintf(statsd_metric, sizeof(statsd_metric), "CStatsDProxy.logging_interval.packetsreceived:%llu|c", packet_counter);
-            
-            // Enqueue the StatsD metric to the atomic queue of the worker at index 1
-            atmEnqueue(workerArgs[1].queue, statsd_metric);
+            write_log("INFO", "Packets Since Last Logging: %llu", packet_counter);
+
+            if (LOGGING_TO_STATSD) {
+                char statsd_metric[256]; 
+                snprintf(statsd_metric, sizeof(statsd_metric), "CStatsDProxy.logging_interval.packetsreceived:%llu|c", packet_counter);
+                atmEnqueue(workerArgs[1].queue, statsd_metric);
+            }
         }        
         packet_counter = 0;
         pthread_mutex_unlock(&packet_counter_mutex);
