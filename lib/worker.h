@@ -1,6 +1,9 @@
 #ifndef WORKER_H
 #define WORKER_H
 
+#include <netinet/in.h>  // for sockaddr_in
+#include "atomic.h"  // Include atomic.h to recognize AtomicQueue
+
 extern int UDP_PORT;
 extern char LISTEN_UDP_IP[16];
 extern int DEST_UDP_PORT;
@@ -17,7 +20,7 @@ extern int CLONE_DEST_UDP_PORT;
 extern char CLONE_DEST_UDP_IP[50];
 
 typedef struct {
-    Queue *queue;
+    AtomicQueue *queue;
     int udpSocket;
     struct sockaddr_in destAddr;
     int bufferSize;

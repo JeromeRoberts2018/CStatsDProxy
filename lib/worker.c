@@ -4,11 +4,11 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include "queue.h"
+#include "atomic.h"
 #include "worker.h"
 
 struct WorkerArgs {
-    Queue *queue;
+    AtomicQueue *queue;  // Update to AtomicQueue
     int udpSocket;
     struct sockaddr_in destAddr;
     int workerID;
@@ -22,10 +22,9 @@ void safeFree(void **pp) {
     }
 }
 
-
 void *worker_thread(void *arg) {
     struct WorkerArgs *args = (struct WorkerArgs *)arg;
-    Queue *queue = args->queue;
+    AtomicQueue *queue = args->queue;  // Update to AtomicQueue
     int udpSocket = args->udpSocket;
     struct sockaddr_in destAddr = args->destAddr;
 
@@ -34,21 +33,22 @@ void *worker_thread(void *arg) {
     cloneDestAddr.sin_port = htons(CLONE_DEST_UDP_PORT);
     inet_aton(CLONE_DEST_UDP_IP, &cloneDestAddr.sin_addr);
 
+    Packet packet;  // Use Packet struct for handling data
+
     while (1) {
-        char *buffer = dequeue(queue);
-        if (buffer != NULL) {
-            ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
+        if (atmDequeue(queue, &packet)) {  // Update to use atmDequeue
+            ssize_t sentBytes = sendto(udpSocket, packet.packet_data, strlen(packet.packet_data), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
 
             if (sentBytes == -1) {
-                char *statsd_metric = strdup("CStatsDProxy.logging_interval.packetslost:1|c");
-                enqueue(queue, statsd_metric);
+                atmEnqueue(queue, "CStatsDProxy.logging_interval.packetslost:1|c");  // No need to manually populate Packet
             } else {
                 if (CLONE_ENABLED) {
-                    sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
+                    sendto(udpSocket, packet.packet_data, strlen(packet.packet_data), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
                 }
             }
-            safeFree((void**)&buffer);
+            // No need to free packet.packet_data as it's a statically allocated array within the struct.
         }
     }
+
     return NULL;
 }
