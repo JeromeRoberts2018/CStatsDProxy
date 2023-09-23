@@ -149,10 +149,8 @@ int main() {
             }
         } else if (recvLen == 0) {
             if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "Received zero bytes. Connection closed or terminated."); }
-            free(buffer);
         } else {
             if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "recvfrom() returned an error: %zd", recvLen); }
-            free(buffer);
         }
     }
 
@@ -192,7 +190,6 @@ void *logging_thread(void *arg) {
 
             // Enqueue the StatsD metric to the worker's queue at index 1
             enqueue(queues[1], statsd_metric);
-            free(statsd_metric);
         }        
         packet_counter = 0;
         pthread_mutex_unlock(&packet_counter_mutex);
