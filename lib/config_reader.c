@@ -76,9 +76,6 @@ int read_config(const char *filepath) {
             LOGGING_INTERVAL = atoi(value);
         } else if (case_insensitive_compare(key, "LOGGING_ENABLED")) {
             LOGGING_ENABLED = atoi(value);
-        } else if (case_insensitive_compare(key, "LOGGING_FILE_NAME")) {
-            strncpy(LOGGING_FILE_NAME, value, sizeof(LOGGING_FILE_NAME) - 1);
-            LOGGING_FILE_NAME[sizeof(LOGGING_FILE_NAME) - 1] = '\0'; // Ensure null-termination
         } else if (case_insensitive_compare(key, "CLONE_ENABLED")) {
             CLONE_ENABLED = atoi(value);
         } else if (case_insensitive_compare(key, "CLONE_DEST_UDP_PORT")) {
