@@ -12,8 +12,7 @@ extern int BUFFER_SIZE;
 extern int MAX_THREADS;
 extern int MAX_QUEUE_SIZE;
 extern int LOGGING_INTERVAL;
-extern int LOGGING_ENABLED;
-extern char LOGGING_FILE_NAME[256];
+extern int LOGGING_ENABLED;;
 
 typedef struct Node {
     void *data;

@@ -17,7 +17,7 @@ Queue* initQueue(int maxSize) {
 void enqueue(Queue *queue, void *data) {
     pthread_mutex_lock(&queue->mutex);
     if (queue->currentSize >= queue->maxSize) {
-        write_log(LOGGING_FILE_NAME, "Queue is full. Dropping packet. %d", queue->maxSize);
+        write_log("Queue is full. Dropping packet. %d", queue->maxSize);
         pthread_mutex_unlock(&queue->mutex);
         return;
     }

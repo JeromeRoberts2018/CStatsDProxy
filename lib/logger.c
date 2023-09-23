@@ -4,31 +4,23 @@
 
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void write_log(const char *filename, const char *format, ...) {
+void write_log(const char *format, ...) {
     pthread_mutex_lock(&log_mutex);
-
-    FILE *file = fopen(filename, "a"); // Append to the file
-    if (file == NULL) {
-        perror("Error opening file");  // Print the error
-        pthread_mutex_unlock(&log_mutex);
-        return;
-    }
 
     // Get the current time
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
-    fprintf(file, "[%04d-%02d-%02d %02d:%02d:%02d] ", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    printf("[%04d-%02d-%02d %02d:%02d:%02d] ", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
-    va_list args;
-    va_start(args, format);
-    if (vfprintf(file, format, args) < 0) {
-        perror("Error writing to file");
+    va_list args_log;
+    va_start(args_log, format);
+    if (vprintf(format, args_log) < 0) {
+        perror("Error writing to stdout");
     }
-    va_end(args);
+    va_end(args_log);
 
-    fprintf(file, "\n");
-    fflush(file);  // Flush the output buffer
-    fclose(file);
+    printf("\n");
+    fflush(stdout);  // Flush the output buffer
 
     pthread_mutex_unlock(&log_mutex);
 }

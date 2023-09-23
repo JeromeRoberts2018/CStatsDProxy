@@ -21,9 +21,8 @@ int MAX_THREADS;
 int MAX_QUEUE_SIZE;
 int LOGGING_INTERVAL;
 int LOGGING_ENABLED;
-char LOGGING_FILE_NAME[256];
-int CLONE_ENABLED = 0;
-int CLONE_DEST_UDP_PORT = 0;
+int CLONE_ENABLED;
+int CLONE_DEST_UDP_PORT;
 char CLONE_DEST_UDP_IP[50];
 
 unsigned long long int packet_counter = 0;
@@ -40,11 +39,11 @@ struct WorkerArgs {
 
 void *logging_thread(void *arg);
 
-int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *address, const char *logging_file_name) {
+int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *address) {
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
     if (udpSocket == -1) {
-        write_log(logging_file_name, "Shared Socket creation failed");
+        write_log("Shared Socket creation failed");
         return -1;
     }
 
@@ -55,7 +54,7 @@ int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *a
     return udpSocket;
 }
 
-int initialize_listener_udp_socket(const char *ip, int port, struct sockaddr_in *address, const char *logging_file_name) {
+int initialize_listener_udp_socket(const char *ip, int port, struct sockaddr_in *address) {
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
     address->sin_family = AF_INET;
     address->sin_port = htons(port);
@@ -64,13 +63,13 @@ int initialize_listener_udp_socket(const char *ip, int port, struct sockaddr_in 
         address->sin_addr.s_addr = htonl(INADDR_ANY);
     } else {
         if (inet_pton(AF_INET, ip, &(address->sin_addr)) <= 0) {
-            write_log(logging_file_name, "Invalid IP address: %s", ip);
+            write_log("Invalid IP address: %s", ip);
             return -1;
         }
     }
 
     if (bind(udpSocket, (struct sockaddr *)address, sizeof(*address)) < 0) {
-        write_log(logging_file_name, "Bind failed");
+        write_log("Bind failed");
         perror("Bind failed");
         return -1;
     }
@@ -82,27 +81,21 @@ int main() {
     printf("Starting CStatsDProxy server...\n");
 
     if (read_config("conf/config.conf") == -1) {
-        write_log(LOGGING_FILE_NAME, "Failed to read configuration");
+        write_log("Failed to read configuration");
         return 1;
     }
 
-    printf("Starting server on %s:%d\n", LISTEN_UDP_IP, UDP_PORT);
-    printf("Forwarding to %s:%d\n", DEST_UDP_IP, DEST_UDP_PORT);
-    if (CLONE_ENABLED) {
-        printf("Cloning to %s:%d\n", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
-    }
-
     if (LOGGING_ENABLED) {
-        write_log(LOGGING_FILE_NAME, "Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
-        write_log(LOGGING_FILE_NAME, "Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
+        write_log("Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
+        write_log("Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
         if (CLONE_ENABLED) {
-            write_log(LOGGING_FILE_NAME, "Cloning to %s:%d", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
+            write_log("Cloning to %s:%d", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
         }
     }
 
     struct sockaddr_in destAddr, serverAddr;
-    int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr, LOGGING_FILE_NAME);
-    int udpSocket = initialize_listener_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr, LOGGING_FILE_NAME);
+    int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr);
+    int udpSocket = initialize_listener_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr);
 
 
     if (sharedUdpSocket == -1 || udpSocket == -1) {
@@ -124,7 +117,7 @@ int main() {
     }
 
     if (LOGGING_ENABLED) {
-        write_log(LOGGING_FILE_NAME, "Logging enabled");
+        write_log("Logging enabled");
         pthread_t log_thread;
         pthread_create(&log_thread, NULL, logging_thread, args);
     }
@@ -148,9 +141,9 @@ int main() {
                 pthread_mutex_unlock(&packet_counter_mutex);
             }
         } else if (recvLen == 0) {
-            if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "Received zero bytes. Connection closed or terminated."); }
+            if (LOGGING_ENABLED) { write_log("Received zero bytes. Connection closed or terminated."); }
         } else {
-            if (LOGGING_ENABLED) { write_log(LOGGING_FILE_NAME, "recvfrom() returned an error: %zd", recvLen); }
+            if (LOGGING_ENABLED) { write_log("recvfrom() returned an error: %zd", recvLen); }
         }
     }
 
@@ -176,14 +169,14 @@ void *logging_thread(void *arg) {
             Queue *queue = workerArgs[i].queue;
             pthread_mutex_lock(&queue->mutex);
             if (queue->currentSize > 0) { 
-                write_log(LOGGING_FILE_NAME, "WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
+                write_log("WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
             }
             pthread_mutex_unlock(&queue->mutex);
         }
         
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 0) {
-            write_log(LOGGING_FILE_NAME, "Packets Since Last Logging: %llu", packet_counter);
+            write_log("Packets Since Last Logging: %llu", packet_counter);
             // Create a StatsD metric string
             char *statsd_metric = malloc(256); // Allocate enough space for the metric
             snprintf(statsd_metric, 256, "CStatsDProxy.logging_interval.packetsreceived:%llu|c", packet_counter);
