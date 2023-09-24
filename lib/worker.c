@@ -34,6 +34,10 @@ void *worker_thread(void *arg) {
     cloneDestAddr.sin_port = htons(CLONE_DEST_UDP_PORT);
     inet_aton(CLONE_DEST_UDP_IP, &cloneDestAddr.sin_addr);
 
+    int error_counter = 0;
+    time_t error_time = 0;
+  
+
     while (1) {
         char *buffer = dequeue(queue);
         if (buffer != NULL) {
@@ -44,19 +48,30 @@ void *worker_thread(void *arg) {
                 sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
             }
             if (sentBytes == -1) {
-                if (strcmp(buffer, "CStatsDProxy.logging_interval.packetsdropped:1|c") != 0) {
+                time_t current_time = time(NULL);
+            
+                if (error_counter < 2 || difftime(current_time, error_time) >= 120) {
+                    if (difftime(current_time, error_time) >= 120) {
+                        error_counter = 0;
+                        error_time = 0;
+                    }
                     char *statsd_metric = malloc(256);
                     snprintf(statsd_metric, 256, "CStatsDProxy.logging_interval.packetsdropped:1|c");
+                    printf("Error sending packet to %s:%d\n", inet_ntoa(destAddr.sin_addr), ntohs(destAddr.sin_port));
                     enqueue(queues[1], statsd_metric);
+                    error_counter++;
+                    if (error_counter == 1) {
+                        error_time = current_time;
+                    }
                 }
+            
             } else {
                 free(buffer);
             }
-        }
-        else {
-            if (time(NULL) - last_packet_time >= 5) {
+        } else {
+            if (difftime(time(NULL), last_packet_time) >= 5) {
                 printf("Exiting thread due to inactivity.\n");
-                return NULL;  // Exit the thread
+                return 0;  // Exit the thread
             }
         }
     }
