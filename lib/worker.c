@@ -4,8 +4,14 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <time.h>  // Include for time()
 #include "queue.h"
 #include "worker.h"
+
+extern int CLONE_ENABLED;
+extern int CLONE_DEST_UDP_PORT;
+extern char CLONE_DEST_UDP_IP[];
+extern Queue **queues;
 
 struct WorkerArgs {
     Queue *queue;
@@ -21,6 +27,9 @@ void *worker_thread(void *arg) {
     int udpSocket = args->udpSocket;
     struct sockaddr_in destAddr = args->destAddr;
     struct sockaddr_in cloneDestAddr;
+
+    time_t last_packet_time = time(NULL);
+
     cloneDestAddr.sin_family = AF_INET;
     cloneDestAddr.sin_port = htons(CLONE_DEST_UDP_PORT);
     inet_aton(CLONE_DEST_UDP_IP, &cloneDestAddr.sin_addr);
@@ -28,6 +37,8 @@ void *worker_thread(void *arg) {
     while (1) {
         char *buffer = dequeue(queue);
         if (buffer != NULL) {
+            last_packet_time = time(NULL);
+
             ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
             if (CLONE_ENABLED) {
                 sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
@@ -40,6 +51,12 @@ void *worker_thread(void *arg) {
                 }
             } else {
                 free(buffer);
+            }
+        }
+        else {
+            if (time(NULL) - last_packet_time >= 5) {
+                printf("Exiting thread due to inactivity.\n");
+                return NULL;  // Exit the thread
             }
         }
     }
