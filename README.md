@@ -1,4 +1,4 @@
-# CStatsDProxy
+# CStatsDProxy 0.8.1
 
 ## Overview
 
@@ -8,8 +8,6 @@ CStatsDProxy is a high-performance, multithreaded StatsD proxy written in C. The
 
 - Multithreaded architecture for handling multiple StatsD packets concurrently
 - Efficient queuing mechanism to handle bursts of incoming packets
-- Packet consolidation to minimize network overhead
-- Dynamic logging capabilities
 - Configurable settings via a configuration file
 
 ## Requirements

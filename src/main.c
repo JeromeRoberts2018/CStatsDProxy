@@ -170,6 +170,9 @@ void *logging_thread(void *arg) {
             pthread_mutex_lock(&queue->mutex);
             if (queue->currentSize > 0) { 
                 write_log("WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
+                char *statsd_worker = malloc(256);
+                snprintf(statsd_worker, 256, "CStatsDProxy.logging_interval.worker%d:%d|c", workerArgs[i].workerID, queue->currentSize);
+                enqueue(queues[1], statsd_worker);
             }
             pthread_mutex_unlock(&queue->mutex);
         }
@@ -177,11 +180,8 @@ void *logging_thread(void *arg) {
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 0) {
             write_log("Packets Since Last Logging: %llu", packet_counter);
-            // Create a StatsD metric string
             char *statsd_metric = malloc(256); // Allocate enough space for the metric
             snprintf(statsd_metric, 256, "CStatsDProxy.logging_interval.packetsreceived:%llu|c", packet_counter);
-
-            // Enqueue the StatsD metric to the worker's queue at index 1
             enqueue(queues[1], statsd_metric);
         }        
         packet_counter = 0;
