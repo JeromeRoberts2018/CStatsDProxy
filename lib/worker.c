@@ -54,12 +54,13 @@ void *worker_thread(void *arg) {
                     error_counter_pack = 0;
                     current_packets = 0;
                 }
-                current_packets++;
+                
                 error_counter_pack++;
                 if (error_counter_pack == 1) {
                     error_time_pack = current_time_pack;
                 }
             }
+            current_packets++;
 
 
             ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
