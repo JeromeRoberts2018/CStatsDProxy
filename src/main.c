@@ -28,7 +28,7 @@ int CLONE_ENABLED;
 int CLONE_DEST_UDP_PORT;
 char CLONE_DEST_UDP_IP[50];
 
-unsigned long long int packet_counter = 0;
+int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 Queue **queues = NULL;
 
@@ -236,7 +236,7 @@ void *logging_thread(void *arg) {
         
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 0) {
-            write_log("Packets Since Last Logging: %llu", packet_counter);
+            write_log("Packets Since Last Logging: %d", packet_counter);
             injectMetric("packets_received", packet_counter);
         }        
         packet_counter = 0;
