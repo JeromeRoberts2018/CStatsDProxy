@@ -109,56 +109,8 @@ void *monitor_worker_threads(void *arg) {
     return NULL;
 }
 
-
-int main() {
-    printf("Starting CStatsDProxy server...\n");
-
-    if (read_config("conf/config.conf") == -1) {
-        write_log("Failed to read configuration");
-        return 1;
-    }
-
-    if (LOGGING_ENABLED) {
-        write_log("Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
-        write_log("Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
-        if (CLONE_ENABLED) {
-            write_log("Cloning to %s:%d", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
-        }
-    }
-
-    struct sockaddr_in destAddr, serverAddr;
-    int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr);
-    int udpSocket = initialize_listener_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr);
-
-
-    if (sharedUdpSocket == -1 || udpSocket == -1) {
-        return 1;
-    }
-
-    pthread_t threads[MAX_THREADS];
-    struct WorkerArgs args[MAX_THREADS];
-    queues = malloc(sizeof(Queue*) * MAX_QUEUE_SIZE);
-
-    for (int i = 0; i < MAX_THREADS; ++i) {
-        queues[i] = initQueue(MAX_QUEUE_SIZE);
-        args[i].queue = queues[i];
-        args[i].udpSocket = sharedUdpSocket;
-        args[i].destAddr = destAddr;
-        args[i].workerID = i;
-        args[i].bufferSize = BUFFER_SIZE;
-        pthread_create(&threads[i], NULL, worker_thread, &args[i]);
-    }
-    struct MonitorArgs monitorArgs = { threads, args, MAX_THREADS };
-    pthread_t monitor_thread;
-    pthread_create(&monitor_thread, NULL, monitor_worker_threads, &monitorArgs);
-
-
-    if (LOGGING_ENABLED) {
-        write_log("Logging enabled");
-        pthread_t log_thread;
-        pthread_create(&log_thread, NULL, logging_thread, args);
-    }
-    
+void *udp_listener_thread(void *arg) {
+    int udpSocket = *(int*)arg;
     int RoundRobinCounter = 0;
 
     while (1) {
@@ -183,6 +135,96 @@ int main() {
             if (LOGGING_ENABLED) { write_log("recvfrom() returned an error: %zd", recvLen); }
         }
     }
+
+    return NULL;
+}
+
+void *udp_activity_monitor(void *arg) {
+    int udpSocket = *(int*)arg;
+    fd_set read_fds;
+    struct timeval timeout;
+    pthread_t udp_listener_tid;
+
+    pthread_create(&udp_listener_tid, NULL, udp_listener_thread, &udpSocket);
+    sleep(1);  // Wait for the listener thread to start
+    while (1) {
+        FD_ZERO(&read_fds);
+        FD_SET(udpSocket, &read_fds);
+
+        timeout.tv_sec = 3;
+        timeout.tv_usec = 0;
+
+        int activity = select(udpSocket + 1, &read_fds, NULL, NULL, &timeout);
+
+        if (activity < 0) {
+            write_log("select error");
+        } else if (activity == 0) {
+            write_log("UDP Listener inactive for %d second, restarting thread...",timeout.tv_sec );
+
+            pthread_cancel(udp_listener_tid);  // Cancel the old listener thread
+            pthread_join(udp_listener_tid, NULL);  // Wait for it to finish
+
+            pthread_create(&udp_listener_tid, NULL, udp_listener_thread, &udpSocket);  // Create a new listener thread
+        }
+    }
+
+    return NULL;
+}
+
+
+int main() {
+    printf("Starting CStatsDProxy server...\n");
+
+    if (read_config("conf/config.conf") == -1) {
+        write_log("Failed to read configuration");
+        return 1;
+    }
+
+    if (LOGGING_ENABLED) {
+        write_log("Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
+        write_log("Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
+        if (CLONE_ENABLED) {
+            write_log("Cloning to %s:%d", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
+        }
+    }
+
+    struct sockaddr_in destAddr, serverAddr;
+    int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr);
+    int udpSocket = initialize_listener_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr);
+    if (sharedUdpSocket == -1 || udpSocket == -1) {
+        return 1;
+    }
+    pthread_t udp_monitor_thread;
+    pthread_create(&udp_monitor_thread, NULL, udp_activity_monitor, &udpSocket);
+
+    pthread_t threads[MAX_THREADS];
+    struct WorkerArgs args[MAX_THREADS];
+    queues = malloc(sizeof(Queue*) * MAX_QUEUE_SIZE);
+
+    for (int i = 0; i < MAX_THREADS; ++i) {
+        queues[i] = initQueue(MAX_QUEUE_SIZE);
+        args[i].queue = queues[i];
+        args[i].udpSocket = sharedUdpSocket;
+        args[i].destAddr = destAddr;
+        args[i].workerID = i;
+        args[i].bufferSize = BUFFER_SIZE;
+        pthread_create(&threads[i], NULL, worker_thread, &args[i]);
+    }
+    struct MonitorArgs monitorArgs = { threads, args, MAX_THREADS };
+    pthread_t monitor_thread;
+    pthread_create(&monitor_thread, NULL, monitor_worker_threads, &monitorArgs);
+
+    while (1) {
+        sleep(1); // idle main thread
+    }
+
+    if (LOGGING_ENABLED) {
+        write_log("Logging enabled");
+        pthread_t log_thread;
+        pthread_create(&log_thread, NULL, logging_thread, args);
+    }
+    
+
 
     for (int i = 0; i < MAX_THREADS; ++i) {
         pthread_cancel(threads[i]);
