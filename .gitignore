@@ -21,6 +21,8 @@
 
 # Visual Studio Code files
 .vscode/
+bin/CStatsDProxy
+bin/CStatsDProxy.exe
 
 # OS-specific files
 .DS_Store  # macOS

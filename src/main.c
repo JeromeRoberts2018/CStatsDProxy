@@ -192,8 +192,10 @@ int main() {
     int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr);
     int udpSocket = initialize_listener_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr);
     if (sharedUdpSocket == -1 || udpSocket == -1) {
-        printf("Failed to initialize sockets\n");
+        write_log("Failed to initialize sockets");
         return 1;
+    } else {
+        write_log("Sockets initialized");
     }
     pthread_t udp_monitor_thread;
     pthread_create(&udp_monitor_thread, NULL, udp_activity_monitor, &udpSocket);
@@ -201,7 +203,7 @@ int main() {
     pthread_t threads[MAX_THREADS];
     struct WorkerArgs args[MAX_THREADS];
     queues = malloc(sizeof(Queue*) * MAX_QUEUE_SIZE);
-
+    write_log("Starting %d worker threads", MAX_THREADS);
     for (int i = 0; i < MAX_THREADS; ++i) {
         queues[i] = initQueue(MAX_QUEUE_SIZE);
         args[i].queue = queues[i];
@@ -223,7 +225,7 @@ int main() {
     }
     
     while (1) {
-        sleep(1); // idle main thread
+        sleep(5); // idle main thread
     }
 
 
@@ -231,7 +233,10 @@ int main() {
         pthread_cancel(threads[i]);
         pthread_join(threads[i], NULL);
     }
-
+    pthread_cancel(monitor_thread);
+    pthread_join(monitor_thread, NULL);
+    pthread_cancel(udp_monitor_thread);
+    pthread_join(udp_monitor_thread, NULL);
     close(sharedUdpSocket);
     close(udpSocket);
 

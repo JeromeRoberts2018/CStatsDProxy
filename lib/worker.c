@@ -7,6 +7,7 @@
 #include <time.h>  // Include for time()
 #include "queue.h"
 #include "worker.h"
+#include "logger.h"
 
 extern int CLONE_ENABLED;
 extern int CLONE_DEST_UDP_PORT;
@@ -37,7 +38,8 @@ void *worker_thread(void *arg) {
     int error_counter = 0;
     time_t error_time = 0;
   
-
+    write_log("Worker thread %d started", args->workerID);
+    
     while (1) {
         char *buffer = dequeue(queue);
         if (buffer != NULL) {
