@@ -30,7 +30,7 @@ void *worker_thread(void *arg) {
     struct sockaddr_in cloneDestAddr;
     char thread_name[16]; // 15 characters + null terminator
     snprintf(thread_name, sizeof(thread_name), "Worker_%d", args->workerID);
-    if (pthread_setname_np(thread_name) != 0) {
+    if (pthread_setname_np(pthread_self(),thread_name) != 0) {
         perror("pthread_setname_np");
     }
 
