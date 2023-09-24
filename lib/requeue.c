@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include "global.h"
 
-Queue *requeue = NULL;  // Global requeue
+Queue *requeue = NULL; 
 
 struct RequeueArgs {
     Queue **queues;
@@ -13,7 +13,7 @@ struct RequeueArgs {
 };
 
 void *requeue_thread(void *arg) {
-    set_thread_name("requeue");
+    set_thread_name("Requeue");
 
     struct RequeueArgs *requeueArgs = (struct RequeueArgs *)arg;
     Queue **queues = requeueArgs->queues;

@@ -145,7 +145,7 @@ int main() {
     write_log("Starting %d worker threads", MAX_THREADS);
     for (int i = 0; i < MAX_THREADS; ++i) {
         queues[i] = initQueue(MAX_QUEUE_SIZE);
-        sleep(0.1);
+        sleep(1);
         args[i].queue = queues[i];
         args[i].udpSocket = sharedUdpSocket;
         args[i].destAddr = destAddr;
@@ -180,18 +180,26 @@ int main() {
 
         if (recvLen > 0) {
             buffer[recvLen] = '\0';
-            enqueue(queues[RoundRobinCounter], buffer);
-            RoundRobinCounter = (RoundRobinCounter + 1) % MAX_THREADS;
+            if (isMetricValid(buffer)) {
+                enqueue(queues[RoundRobinCounter], buffer);
+                RoundRobinCounter = (RoundRobinCounter + 1) % MAX_THREADS;
 
-            if (LOGGING_ENABLED) {
-                pthread_mutex_lock(&packet_counter_mutex);
-                packet_counter++;
-                pthread_mutex_unlock(&packet_counter_mutex);
+                if (LOGGING_ENABLED) {
+                    pthread_mutex_lock(&packet_counter_mutex);
+                    packet_counter++;
+                    pthread_mutex_unlock(&packet_counter_mutex);
+                }
+            } else {
+                injectMetric("invalid_packets", 1);
+                write_log("Invalid packet received: %s", buffer);
+                free(buffer); 
             }
         } else if (recvLen == 0) {
             if (LOGGING_ENABLED) { write_log("Received zero bytes. Connection closed or terminated."); }
+            free(buffer); 
         } else {
             if (LOGGING_ENABLED) { write_log("recvfrom() returned an error: %zd", recvLen); }
+            free(buffer); 
         }
     }
 
@@ -221,9 +229,7 @@ void *logging_thread(void *arg) {
             pthread_mutex_lock(&queue->mutex);
             if (queue->currentSize > 0) { 
                 write_log("WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
-                char *statsd_worker = malloc(256);
-                snprintf(statsd_worker, 256, "CStatsDProxy.logging_interval.worker%d:%d|c", workerArgs[i].workerID, queue->currentSize);
-                enqueue(queues[1], statsd_worker);
+                injectMetric("queue_size", queue->currentSize);
             }
             pthread_mutex_unlock(&queue->mutex);
         }
@@ -231,9 +237,7 @@ void *logging_thread(void *arg) {
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 0) {
             write_log("Packets Since Last Logging: %llu", packet_counter);
-            char *statsd_metric = malloc(256); // Allocate enough space for the metric
-            snprintf(statsd_metric, 256, "CStatsDProxy.logging_interval.packetsreceived:%llu|c", packet_counter);
-            enqueue(queues[1], statsd_metric);
+            injectMetric("packets_received", packet_counter);
         }        
         packet_counter = 0;
         pthread_mutex_unlock(&packet_counter_mutex);

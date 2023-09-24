@@ -10,6 +10,7 @@
 #include "logger.h"
 #include "global.h"
 
+
 extern int CLONE_ENABLED;
 extern int CLONE_DEST_UDP_PORT;
 extern char CLONE_DEST_UDP_IP[];
@@ -55,6 +56,9 @@ void *worker_thread(void *arg) {
             if (error_counter_pack == 0 || difftime(current_time_pack, error_time_pack) >= 60) {
                 if (difftime(current_time_pack, error_time_pack) >= 60) {
                     printf("Worker %d: %d packets sent\n", args->workerID, current_packets);
+                    char metric_name[256];
+                    snprintf(metric_name, 256, "Worker-%d.PacketsSent", args->workerID);
+                    injectMetric(metric_name, current_packets);
                     error_counter_pack = 0;
                     current_packets = 0;
                 }
@@ -79,10 +83,10 @@ void *worker_thread(void *arg) {
                         error_counter = 0;
                         error_time = 0;
                     }
-                    //char *statsd_metric = malloc(256);
-                    //snprintf(statsd_metric, 256, "CStatsDProxy.logging_interval.packetsdropped:1|c");
+                    char metric_name2[256];
+                    snprintf(metric_name2, 256, "Worker-%d.PacketsDropped",current_packets);
+                    injectMetric(metric_name2, current_packets);
                     printf("Error sending packet to %s:%d\n", inet_ntoa(destAddr.sin_addr), ntohs(destAddr.sin_port));
-                    //enqueue(queues[1], statsd_metric);
                     error_counter++;
                     if (error_counter == 1) {
                         error_time = current_time;

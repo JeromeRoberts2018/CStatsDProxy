@@ -15,7 +15,7 @@ extern char LOGGING_FILE_NAME[256];
 extern int CLONE_ENABLED;
 extern int CLONE_DEST_UDP_PORT;
 extern char CLONE_DEST_UDP_IP[50];
-
+extern Queue *requeue;
 extern Queue **queues;
 
 typedef struct {
