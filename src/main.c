@@ -230,7 +230,7 @@ void *logging_thread(void *arg) {
             if (queue->currentSize > 1) { 
                 write_log("WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
                 char metric_name4[256];
-                snprintf(metric_name4, 256, "CStatsDProxy.metrics.Worker-%d.QueueSize", i);
+                snprintf(metric_name4, 256, "CStatsDProxy.metrics.Worker-%d.QueueSize:%d", i, queue->currentSize);
                 enqueue(requeue, metric_name4);                
             }
             pthread_mutex_unlock(&queue->mutex);
@@ -239,7 +239,7 @@ void *logging_thread(void *arg) {
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 1) {
             char metric_name5[256];
-            snprintf(metric_name5, 256, "CStatsDProxy.metrics.packets_received", packet_counter);
+            snprintf(metric_name5, 256, "CStatsDProxy.metrics.packets_received:%d|c", packet_counter);
             enqueue(requeue, metric_name5);
             printf("Packets Since Last Logging: %d\n", packet_counter); 
         }        
