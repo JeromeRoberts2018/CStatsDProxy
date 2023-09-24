@@ -2,6 +2,7 @@
     #include <windows.h>
     #include <processthreadsapi.h>
 #elif defined(__APPLE__) || defined(__MACH__) || defined(__linux__)
+    #define _GNU_SOURCE
     #include <pthread.h>
 #endif
 
