@@ -39,11 +39,28 @@ void *worker_thread(void *arg) {
     time_t error_time = 0;
   
     write_log("Worker thread %d started", args->workerID);
-    
+    int current_packets = 0;
+    int error_counter_pack = 0;
+    time_t error_time_pack = 0;
+
     while (1) {
         char *buffer = dequeue(queue);
         if (buffer != NULL) {
             last_packet_time = time(NULL);
+            time_t current_time_pack = time(NULL);
+            if (error_counter_pack < 2 || difftime(current_time_pack, error_time) >= 120) {
+                if (difftime(current_time_pack, error_time) >= 120) {
+                    error_counter_pack = 0;
+                    error_time_pack = 0;
+                }
+                printf("Worker %d: %d packets sent\n", args->workerID, current_packets);
+                current_packets++;
+                error_counter_pack++;
+                if (error_counter_pack == 1) {
+                    error_time_pack = current_time_pack;
+                }
+            }
+
 
             ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
             if (CLONE_ENABLED) {
@@ -57,10 +74,10 @@ void *worker_thread(void *arg) {
                         error_counter = 0;
                         error_time = 0;
                     }
-                    char *statsd_metric = malloc(256);
-                    snprintf(statsd_metric, 256, "CStatsDProxy.logging_interval.packetsdropped:1|c");
+                    //char *statsd_metric = malloc(256);
+                    //snprintf(statsd_metric, 256, "CStatsDProxy.logging_interval.packetsdropped:1|c");
                     printf("Error sending packet to %s:%d\n", inet_ntoa(destAddr.sin_addr), ntohs(destAddr.sin_port));
-                    enqueue(queues[1], statsd_metric);
+                    //enqueue(queues[1], statsd_metric);
                     error_counter++;
                     if (error_counter == 1) {
                         error_time = current_time;
