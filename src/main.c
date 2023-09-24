@@ -145,7 +145,7 @@ int main() {
     write_log("Starting %d worker threads", MAX_THREADS);
     for (int i = 0; i < MAX_THREADS; ++i) {
         queues[i] = initQueue(MAX_QUEUE_SIZE);
-        sleep(1);
+        //sleep(1); //this may or may not prevent segfaults
         args[i].queue = queues[i];
         args[i].udpSocket = sharedUdpSocket;
         args[i].destAddr = destAddr;
@@ -227,7 +227,7 @@ void *logging_thread(void *arg) {
         for (int i = 0; i < numWorkers; ++i) {
             Queue *queue = workerArgs[i].queue;
             pthread_mutex_lock(&queue->mutex);
-            if (queue->currentSize > 0) { 
+            if (queue->currentSize > 1) { 
                 write_log("WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
                 injectMetric("queue_size", queue->currentSize);
             }
@@ -235,9 +235,9 @@ void *logging_thread(void *arg) {
         }
         
         pthread_mutex_lock(&packet_counter_mutex);
-        if (packet_counter > 0) {
-            write_log("Packets Since Last Logging: %d", packet_counter);
+        if (packet_counter > 1) {
             injectMetric("packets_received", packet_counter);
+            printf("Packets Since Last Logging: %d", packet_counter); 
         }        
         packet_counter = 0;
         pthread_mutex_unlock(&packet_counter_mutex);
