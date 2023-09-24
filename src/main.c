@@ -87,6 +87,9 @@ struct MonitorArgs {
 
 void *monitor_worker_threads(void *arg) {
     struct MonitorArgs *monitorArgs = (struct MonitorArgs *)arg;
+    if (pthread_setname_np("Supervisor") != 0) {
+        perror("pthread_setname_np");
+    }
     pthread_t *threads = monitorArgs->threads;
     struct WorkerArgs *args = monitorArgs->args;
     int num_threads = monitorArgs->num_threads;
@@ -201,6 +204,9 @@ int main() {
 void *logging_thread(void *arg) {
     struct WorkerArgs *workerArgs = (struct WorkerArgs *) arg;
     int numWorkers = MAX_THREADS;
+    if (pthread_setname_np("IntraLogger") != 0) {
+        perror("pthread_setname_np");
+    }
 
     while (1) {
         sleep(LOGGING_INTERVAL);

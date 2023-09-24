@@ -28,6 +28,11 @@ void *worker_thread(void *arg) {
     int udpSocket = args->udpSocket;
     struct sockaddr_in destAddr = args->destAddr;
     struct sockaddr_in cloneDestAddr;
+    char thread_name[16]; // 15 characters + null terminator
+    snprintf(thread_name, sizeof(thread_name), "Worker_%d", args->workerID);
+    if (pthread_setname_np(thread_name) != 0) {
+        perror("pthread_setname_np");
+    }
 
     time_t last_packet_time = time(NULL);
 
@@ -48,8 +53,8 @@ void *worker_thread(void *arg) {
         if (buffer != NULL) {
             last_packet_time = time(NULL);
             time_t current_time_pack = time(NULL);
-            if (error_counter_pack == 0 || difftime(current_time_pack, error_time_pack) >= 120) {
-                if (difftime(current_time_pack, error_time_pack) >= 120) {
+            if (error_counter_pack == 0 || difftime(current_time_pack, error_time_pack) >= 60) {
+                if (difftime(current_time_pack, error_time_pack) >= 60) {
                     printf("Worker %d: %d packets sent\n", args->workerID, current_packets);
                     error_counter_pack = 0;
                     current_packets = 0;

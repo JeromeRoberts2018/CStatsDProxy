@@ -6,6 +6,9 @@
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void write_log(const char *format, ...) {
+    if (pthread_setname_np("Logger") != 0) {
+        perror("pthread_setname_np");
+    }
     pthread_mutex_lock(&log_mutex);
 
     va_list args_log;
