@@ -77,6 +77,38 @@ int initialize_listener_udp_socket(const char *ip, int port, struct sockaddr_in 
     return udpSocket;
 }
 
+struct MonitorArgs {
+    pthread_t *threads;
+    struct WorkerArgs *args;
+    int num_threads;
+};
+
+
+void *monitor_worker_threads(void *arg) {
+    struct MonitorArgs *monitorArgs = (struct MonitorArgs *)arg;
+    pthread_t *threads = monitorArgs->threads;
+    struct WorkerArgs *args = monitorArgs->args;
+    int num_threads = monitorArgs->num_threads;
+
+    while (1) {
+        for (int i = 0; i < num_threads; ++i) {
+            int ret = pthread_kill(threads[i], 0);  // Check the thread status
+            if (ret != 0) {
+                if (LOGGING_ENABLED) {
+                    write_log("StatsD Worker Thread %d died. Restarting...", i);
+                }
+                pthread_cancel(threads[i]);
+                pthread_join(threads[i], NULL);
+                pthread_create(&threads[i], NULL, worker_thread, &args[i]);
+            }
+        }
+        sleep(5);  // Wait for 5 seconds before checking again
+    }
+
+    return NULL;
+}
+
+
 int main() {
     printf("Starting CStatsDProxy server...\n");
 
@@ -115,6 +147,10 @@ int main() {
         args[i].bufferSize = BUFFER_SIZE;
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
     }
+    struct MonitorArgs monitorArgs = { threads, args, MAX_THREADS };
+    pthread_t monitor_thread;
+    pthread_create(&monitor_thread, NULL, monitor_worker_threads, &monitorArgs);
+
 
     if (LOGGING_ENABLED) {
         write_log("Logging enabled");
