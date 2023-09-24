@@ -214,9 +214,6 @@ int main() {
     pthread_t monitor_thread;
     pthread_create(&monitor_thread, NULL, monitor_worker_threads, &monitorArgs);
 
-    while (1) {
-        sleep(1); // idle main thread
-    }
 
     if (LOGGING_ENABLED) {
         write_log("Logging enabled");
@@ -224,6 +221,9 @@ int main() {
         pthread_create(&log_thread, NULL, logging_thread, args);
     }
     
+    while (1) {
+        sleep(1); // idle main thread
+    }
 
 
     for (int i = 0; i < MAX_THREADS; ++i) {
