@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <signal.h>
 #include "lib/queue.h"
 #include "lib/worker.h"
 #include "lib/logger.h"
