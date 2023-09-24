@@ -8,35 +8,29 @@ void trim(char *str) {
     if (str == NULL) {
         return;
     }
-    char *start = str;
-    while (isspace((unsigned char)*start)) {
-        start++;
-    }
-    char *end = start + strlen(start) - 1;
-    while (end >= start && isspace((unsigned char)*end)) {
-        end--;
-    }
-    *(end + 1) = '\0';
-   memmove(str, start, end - start + 2);
+
+    char *end;
+    while (isspace((unsigned char)*str)) str++;
+    end = str + strlen(str) - 1;
+    while (end > str && isspace((unsigned char)*end)) end--;
+    *(end + 1) = 0;
 }
 
 int case_insensitive_compare(const char *str1, const char *str2) {
     if (!str1 || !str2) {
-        return (str1 == str2) ? 0 : (str1 ? 1 : -1);
+        return 0;
     }
 
     while (*str1 && *str2) {
-        int c1 = tolower((unsigned char)*str1);
-        int c2 = tolower((unsigned char)*str2);
-        if (c1 != c2) {
-            return c1 - c2;
+        if (tolower((unsigned char)*str1) != tolower((unsigned char)*str2)) {
+            return 0;
         }
         str1++;
         str2++;
     }
-    return (unsigned char)*str1 - (unsigned char)*str2;
-}
 
+    return (*str1 == '\0' && *str2 == '\0');
+}
 
 int read_config(const char *filepath) {
     FILE *file = fopen(filepath, "r");
