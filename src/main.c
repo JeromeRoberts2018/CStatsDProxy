@@ -192,6 +192,7 @@ int main() {
     int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr);
     int udpSocket = initialize_listener_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr);
     if (sharedUdpSocket == -1 || udpSocket == -1) {
+        printf("Failed to initialize sockets\n");
         return 1;
     }
     pthread_t udp_monitor_thread;
