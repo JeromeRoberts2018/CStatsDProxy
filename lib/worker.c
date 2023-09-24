@@ -8,6 +8,7 @@
 #include "queue.h"
 #include "worker.h"
 #include "logger.h"
+#include "global.h"
 
 extern int CLONE_ENABLED;
 extern int CLONE_DEST_UDP_PORT;
@@ -30,9 +31,7 @@ void *worker_thread(void *arg) {
     struct sockaddr_in cloneDestAddr;
     char thread_name[16]; // 15 characters + null terminator
     snprintf(thread_name, sizeof(thread_name), "Worker_%d", args->workerID);
-    if (pthread_setname_np(pthread_self(),thread_name) != 0) {
-        perror("pthread_setname_np");
-    }
+    set_thread_name(thread_name);
 
     time_t last_packet_time = time(NULL);
 

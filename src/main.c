@@ -10,6 +10,8 @@
 #include "lib/worker.h"
 #include "lib/logger.h"
 #include "lib/config_reader.h"
+#include "lib/requeue.h"
+#include "lib/global.h"
 
 
 int UDP_PORT;
@@ -87,9 +89,7 @@ struct MonitorArgs {
 
 void *monitor_worker_threads(void *arg) {
     struct MonitorArgs *monitorArgs = (struct MonitorArgs *)arg;
-    if (pthread_setname_np(pthread_self(),"Supervisor") != 0) {
-        perror("pthread_setname_np");
-    }
+    set_thread_name("Supervisor");
     pthread_t *threads = monitorArgs->threads;
     struct WorkerArgs *args = monitorArgs->args;
     int num_threads = monitorArgs->num_threads;
@@ -158,6 +158,13 @@ int main() {
     pthread_create(&monitor_thread, NULL, monitor_worker_threads, &monitorArgs);
 
 
+    pthread_t requeueThread;
+    if (init_requeue_thread(&requeueThread, MAX_THREADS, queues) != 0) {
+        write_log("Failed to initialize requeue thread");
+        return 1;
+    }
+
+
     if (LOGGING_ENABLED) {
         write_log("Logging enabled");
         pthread_t log_thread;
@@ -204,9 +211,7 @@ int main() {
 void *logging_thread(void *arg) {
     struct WorkerArgs *workerArgs = (struct WorkerArgs *) arg;
     int numWorkers = MAX_THREADS;
-    if (pthread_setname_np(pthread_self(),"IntraLogger") != 0) {
-        perror("pthread_setname_np");
-    }
+    set_thread_name("IntraLogger");
 
     while (1) {
         sleep(LOGGING_INTERVAL);
