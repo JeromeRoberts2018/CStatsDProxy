@@ -151,7 +151,7 @@ void *udp_activity_monitor(void *arg) {
         FD_ZERO(&read_fds);
         FD_SET(udpSocket, &read_fds);
 
-        timeout.tv_sec = 1;  // 1 second timeout
+        timeout.tv_sec = 3;
         timeout.tv_usec = 0;
 
         int activity = select(udpSocket + 1, &read_fds, NULL, NULL, &timeout);
@@ -159,7 +159,7 @@ void *udp_activity_monitor(void *arg) {
         if (activity < 0) {
             write_log("select error");
         } else if (activity == 0) {
-            write_log("UDP Listener inactive for 1 second, restarting thread...");
+            write_log("UDP Listener inactive for %d second, restarting thread...",timeout.tv_sec );
 
             pthread_cancel(udp_listener_tid);  // Cancel the old listener thread
             pthread_join(udp_listener_tid, NULL);  // Wait for it to finish
