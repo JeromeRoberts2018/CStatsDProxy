@@ -109,6 +109,68 @@ void *monitor_worker_threads(void *arg) {
     return NULL;
 }
 
+void *udp_listener_thread(void *arg) {
+    int udpSocket = *(int*)arg;
+    int RoundRobinCounter = 0;
+
+    while (1) {
+        char *buffer = malloc(MAX_MESSAGE_SIZE);
+        struct sockaddr_in clientAddr;
+        socklen_t addrSize = sizeof(clientAddr);
+        ssize_t recvLen = recvfrom(udpSocket, buffer, MAX_MESSAGE_SIZE - 1, 0, (struct sockaddr *)&clientAddr, &addrSize);
+
+        if (recvLen > 0) {
+            buffer[recvLen] = '\0';
+            enqueue(queues[RoundRobinCounter], buffer);
+            RoundRobinCounter = (RoundRobinCounter + 1) % MAX_THREADS;
+
+            if (LOGGING_ENABLED) {
+                pthread_mutex_lock(&packet_counter_mutex);
+                packet_counter++;
+                pthread_mutex_unlock(&packet_counter_mutex);
+            }
+        } else if (recvLen == 0) {
+            if (LOGGING_ENABLED) { write_log("Received zero bytes. Connection closed or terminated."); }
+        } else {
+            if (LOGGING_ENABLED) { write_log("recvfrom() returned an error: %zd", recvLen); }
+        }
+    }
+
+    return NULL;
+}
+
+void *udp_activity_monitor(void *arg) {
+    int udpSocket = *(int*)arg;
+    fd_set read_fds;
+    struct timeval timeout;
+    pthread_t udp_listener_tid;
+
+    pthread_create(&udp_listener_tid, NULL, udp_listener_thread, &udpSocket);
+    sleep(1);  // Wait for the listener thread to start
+    while (1) {
+        FD_ZERO(&read_fds);
+        FD_SET(udpSocket, &read_fds);
+
+        timeout.tv_sec = 1;  // 1 second timeout
+        timeout.tv_usec = 0;
+
+        int activity = select(udpSocket + 1, &read_fds, NULL, NULL, &timeout);
+
+        if (activity < 0) {
+            write_log("select error");
+        } else if (activity == 0) {
+            write_log("UDP Listener inactive for 1 second, restarting thread...");
+
+            pthread_cancel(udp_listener_tid);  // Cancel the old listener thread
+            pthread_join(udp_listener_tid, NULL);  // Wait for it to finish
+
+            pthread_create(&udp_listener_tid, NULL, udp_listener_thread, &udpSocket);  // Create a new listener thread
+        }
+    }
+
+    return NULL;
+}
+
 
 int main() {
     printf("Starting CStatsDProxy server...\n");
@@ -129,11 +191,11 @@ int main() {
     struct sockaddr_in destAddr, serverAddr;
     int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr);
     int udpSocket = initialize_listener_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr);
-
-
     if (sharedUdpSocket == -1 || udpSocket == -1) {
         return 1;
     }
+    pthread_t udp_monitor_thread;
+    pthread_create(&udp_monitor_thread, NULL, udp_activity_monitor, &udpSocket);
 
     pthread_t threads[MAX_THREADS];
     struct WorkerArgs args[MAX_THREADS];
@@ -159,30 +221,7 @@ int main() {
         pthread_create(&log_thread, NULL, logging_thread, args);
     }
     
-    int RoundRobinCounter = 0;
 
-    while (1) {
-        char *buffer = malloc(MAX_MESSAGE_SIZE);
-        struct sockaddr_in clientAddr;
-        socklen_t addrSize = sizeof(clientAddr);
-        ssize_t recvLen = recvfrom(udpSocket, buffer, MAX_MESSAGE_SIZE - 1, 0, (struct sockaddr *)&clientAddr, &addrSize);
-
-        if (recvLen > 0) {
-            buffer[recvLen] = '\0';
-            enqueue(queues[RoundRobinCounter], buffer);
-            RoundRobinCounter = (RoundRobinCounter + 1) % MAX_THREADS;
-
-            if (LOGGING_ENABLED) {
-                pthread_mutex_lock(&packet_counter_mutex);
-                packet_counter++;
-                pthread_mutex_unlock(&packet_counter_mutex);
-            }
-        } else if (recvLen == 0) {
-            if (LOGGING_ENABLED) { write_log("Received zero bytes. Connection closed or terminated."); }
-        } else {
-            if (LOGGING_ENABLED) { write_log("recvfrom() returned an error: %zd", recvLen); }
-        }
-    }
 
     for (int i = 0; i < MAX_THREADS; ++i) {
         pthread_cancel(threads[i]);
