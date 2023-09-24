@@ -229,7 +229,9 @@ void *logging_thread(void *arg) {
             pthread_mutex_lock(&queue->mutex);
             if (queue->currentSize > 1) { 
                 write_log("WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
-                injectMetric("queue_size", queue->currentSize);
+                char metric_name4[256];
+                snprintf(metric_name4, 256, "Worker-%d.QueueSize", i);
+                injectMetric(metric_name4, queue->currentSize);
             }
             pthread_mutex_unlock(&queue->mutex);
         }
@@ -237,7 +239,7 @@ void *logging_thread(void *arg) {
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 1) {
             injectMetric("packets_received", packet_counter);
-            printf("Packets Since Last Logging: %d", packet_counter); 
+            printf("Packets Since Last Logging: %d\n", packet_counter); 
         }        
         packet_counter = 0;
         pthread_mutex_unlock(&packet_counter_mutex);
