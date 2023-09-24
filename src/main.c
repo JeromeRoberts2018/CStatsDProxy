@@ -142,7 +142,7 @@ int main() {
     write_log("Starting %d worker threads", MAX_THREADS);
     for (int i = 0; i < MAX_THREADS; ++i) {
         queues[i] = initQueue(MAX_QUEUE_SIZE);
-        sleep(1);
+        sleep(0.1);
         args[i].queue = queues[i];
         args[i].udpSocket = sharedUdpSocket;
         args[i].destAddr = destAddr;

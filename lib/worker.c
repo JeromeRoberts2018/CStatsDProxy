@@ -48,11 +48,10 @@ void *worker_thread(void *arg) {
         if (buffer != NULL) {
             last_packet_time = time(NULL);
             time_t current_time_pack = time(NULL);
-            if (error_counter_pack < 2 || difftime(current_time_pack, error_time) >= 120) {
-                if (difftime(current_time_pack, error_time) >= 120) {
+            if (error_counter_pack == 0 || difftime(current_time_pack, error_time_pack) >= 120) {
+                if (difftime(current_time_pack, error_time_pack) >= 120) {
                     printf("Worker %d: %d packets sent\n", args->workerID, current_packets);
                     error_counter_pack = 0;
-                    error_time_pack = 0;
                     current_packets = 0;
                 }
                 current_packets++;
