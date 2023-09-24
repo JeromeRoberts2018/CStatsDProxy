@@ -212,6 +212,7 @@ int main() {
         args[i].workerID = i;
         args[i].bufferSize = BUFFER_SIZE;
         pthread_create(&threads[i], NULL, worker_thread, &args[i]);
+        sleep(1);  // Wait for the worker thread to start
     }
     struct MonitorArgs monitorArgs = { threads, args, MAX_THREADS };
     pthread_t monitor_thread;
