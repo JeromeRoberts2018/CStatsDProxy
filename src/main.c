@@ -10,6 +10,8 @@
 #include "lib/worker.h"
 #include "lib/logger.h"
 #include "lib/config_reader.h"
+#include "lib/requeue.h"
+#include "lib/global.h"
 
 
 int UDP_PORT;
@@ -26,7 +28,9 @@ int CLONE_ENABLED;
 int CLONE_DEST_UDP_PORT;
 char CLONE_DEST_UDP_IP[50];
 
-unsigned long long int packet_counter = 0;
+char VERSION[] = "0.9.1";
+
+int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 Queue **queues = NULL;
 
@@ -37,8 +41,6 @@ struct WorkerArgs {
     int workerID;
     int bufferSize;
 };
-
-void *logging_thread(void *arg);
 
 int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *address) {
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -87,6 +89,7 @@ struct MonitorArgs {
 
 void *monitor_worker_threads(void *arg) {
     struct MonitorArgs *monitorArgs = (struct MonitorArgs *)arg;
+    set_thread_name("Supervisor");
     pthread_t *threads = monitorArgs->threads;
     struct WorkerArgs *args = monitorArgs->args;
     int num_threads = monitorArgs->num_threads;
@@ -109,71 +112,9 @@ void *monitor_worker_threads(void *arg) {
     return NULL;
 }
 
-void *udp_listener_thread(void *arg) {
-    int udpSocket = *(int*)arg;
-    int RoundRobinCounter = 0;
-
-    while (1) {
-        char *buffer = malloc(MAX_MESSAGE_SIZE);
-        struct sockaddr_in clientAddr;
-        socklen_t addrSize = sizeof(clientAddr);
-        ssize_t recvLen = recvfrom(udpSocket, buffer, MAX_MESSAGE_SIZE - 1, 0, (struct sockaddr *)&clientAddr, &addrSize);
-
-        if (recvLen > 0) {
-            buffer[recvLen] = '\0';
-            enqueue(queues[RoundRobinCounter], buffer);
-            RoundRobinCounter = (RoundRobinCounter + 1) % MAX_THREADS;
-
-            if (LOGGING_ENABLED) {
-                pthread_mutex_lock(&packet_counter_mutex);
-                packet_counter++;
-                pthread_mutex_unlock(&packet_counter_mutex);
-            }
-        } else if (recvLen == 0) {
-            if (LOGGING_ENABLED) { write_log("Received zero bytes. Connection closed or terminated."); }
-        } else {
-            if (LOGGING_ENABLED) { write_log("recvfrom() returned an error: %zd", recvLen); }
-        }
-    }
-
-    return NULL;
-}
-
-void *udp_activity_monitor(void *arg) {
-    int udpSocket = *(int*)arg;
-    fd_set read_fds;
-    struct timeval timeout;
-    pthread_t udp_listener_tid;
-
-    pthread_create(&udp_listener_tid, NULL, udp_listener_thread, &udpSocket);
-    sleep(1);  // Wait for the listener thread to start
-    while (1) {
-        FD_ZERO(&read_fds);
-        FD_SET(udpSocket, &read_fds);
-
-        timeout.tv_sec = 3;
-        timeout.tv_usec = 0;
-
-        int activity = select(udpSocket + 1, &read_fds, NULL, NULL, &timeout);
-
-        if (activity < 0) {
-            write_log("select error");
-        } else if (activity == 0) {
-            write_log("UDP Listener inactive for %d second, restarting thread...",timeout.tv_sec );
-
-            pthread_cancel(udp_listener_tid);  // Cancel the old listener thread
-            pthread_join(udp_listener_tid, NULL);  // Wait for it to finish
-
-            pthread_create(&udp_listener_tid, NULL, udp_listener_thread, &udpSocket);  // Create a new listener thread
-        }
-    }
-
-    return NULL;
-}
-
 
 int main() {
-    printf("Starting CStatsDProxy server...\n");
+    write_log("Starting CStatsDProxy server: Version %s\n", VERSION);
 
     if (read_config("conf/config.conf") == -1) {
         write_log("Failed to read configuration");
@@ -192,15 +133,16 @@ int main() {
     int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr);
     int udpSocket = initialize_listener_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr);
     if (sharedUdpSocket == -1 || udpSocket == -1) {
+        write_log("Failed to initialize sockets");
         return 1;
+    } else {
+        write_log("Sockets initialized");
     }
-    pthread_t udp_monitor_thread;
-    pthread_create(&udp_monitor_thread, NULL, udp_activity_monitor, &udpSocket);
 
     pthread_t threads[MAX_THREADS];
     struct WorkerArgs args[MAX_THREADS];
     queues = malloc(sizeof(Queue*) * MAX_QUEUE_SIZE);
-
+    write_log("Starting %d worker threads", MAX_THREADS);
     for (int i = 0; i < MAX_THREADS; ++i) {
         queues[i] = initQueue(MAX_QUEUE_SIZE);
         args[i].queue = queues[i];
@@ -214,15 +156,37 @@ int main() {
     pthread_t monitor_thread;
     pthread_create(&monitor_thread, NULL, monitor_worker_threads, &monitorArgs);
 
+    pthread_t requeueThread;
+    if (init_requeue_thread(&requeueThread, MAX_THREADS, queues) != 0) {
+        write_log("Failed to initialize requeue thread");
+        return 1;
+    }
 
     if (LOGGING_ENABLED) {
         write_log("Logging enabled");
-        pthread_t log_thread;
-        pthread_create(&log_thread, NULL, logging_thread, args);
     }
     
+    int RoundRobinCounter = 0;
     while (1) {
-        sleep(1); // idle main thread
+        char *buffer = malloc(MAX_MESSAGE_SIZE);
+        struct sockaddr_in clientAddr;
+        socklen_t addrSize = sizeof(clientAddr);
+        ssize_t recvLen = recvfrom(udpSocket, buffer, MAX_MESSAGE_SIZE - 1, 0, (struct sockaddr *)&clientAddr, &addrSize);
+
+        if (recvLen > 0) {
+            buffer[recvLen] = '\0';
+            if (isMetricValid(buffer)) {
+                enqueue(queues[RoundRobinCounter], buffer);
+                RoundRobinCounter = (RoundRobinCounter + 1) % MAX_THREADS;
+            } else {
+                injectMetric("invalid_packets", 1);
+                free(buffer); 
+            }
+        } else if (recvLen == 0) {
+            free(buffer); 
+        } else {
+            free(buffer); 
+        }
     }
 
 
@@ -230,43 +194,10 @@ int main() {
         pthread_cancel(threads[i]);
         pthread_join(threads[i], NULL);
     }
-
+    pthread_cancel(monitor_thread);
+    pthread_join(monitor_thread, NULL);
     close(sharedUdpSocket);
     close(udpSocket);
 
     return 0;
-}
-
-void *logging_thread(void *arg) {
-    struct WorkerArgs *workerArgs = (struct WorkerArgs *) arg;
-    int numWorkers = MAX_THREADS;
-
-    while (1) {
-        sleep(LOGGING_INTERVAL);
-
-        for (int i = 0; i < numWorkers; ++i) {
-            Queue *queue = workerArgs[i].queue;
-            pthread_mutex_lock(&queue->mutex);
-            if (queue->currentSize > 0) { 
-                write_log("WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
-                char *statsd_worker = malloc(256);
-                snprintf(statsd_worker, 256, "CStatsDProxy.logging_interval.worker%d:%d|c", workerArgs[i].workerID, queue->currentSize);
-                enqueue(queues[1], statsd_worker);
-            }
-            pthread_mutex_unlock(&queue->mutex);
-        }
-        
-        pthread_mutex_lock(&packet_counter_mutex);
-        if (packet_counter > 0) {
-            write_log("Packets Since Last Logging: %llu", packet_counter);
-            char *statsd_metric = malloc(256); // Allocate enough space for the metric
-            snprintf(statsd_metric, 256, "CStatsDProxy.logging_interval.packetsreceived:%llu|c", packet_counter);
-            enqueue(queues[1], statsd_metric);
-        }        
-        packet_counter = 0;
-        pthread_mutex_unlock(&packet_counter_mutex);
-
-    }
-
-    return NULL;
 }

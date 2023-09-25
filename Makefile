@@ -8,7 +8,7 @@ DEFINES = -DBASE_DIR=\"$(BASE_DIR)\"
 INSTALL_DIR = /usr/sbin
 
 # Source files and object files
-SRC = src/main.c lib/logger.c lib/config_reader.c lib/queue.c lib/worker.c
+SRC = src/main.c lib/logger.c lib/config_reader.c lib/queue.c lib/worker.c lib/global.c lib/requeue.c
 OBJ = $(SRC:.c=.o)
 
 # Compiler and linker
@@ -16,7 +16,7 @@ CC = gcc
 LD = gcc
 
 # Compiler and linker flags
-CFLAGS = -Wall -c -std=gnu99 -D_GNU_SOURCE
+CFLAGS = -Wall -c
 LDFLAGS = -lpthread
 
 # Build rules
