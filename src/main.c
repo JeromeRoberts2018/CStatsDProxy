@@ -224,9 +224,9 @@ void *logging_thread(void *arg) {
         
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 1) {
-            char metric_name5[256];
-            snprintf(metric_name5, 256, "CStatsDProxy.metrics.packets_received:%d|c", packet_counter);
-            enqueue(requeue, metric_name5);
+            //char metric_name5[256];
+            //snprintf(metric_name5, 256, "CStatsDProxy.metrics.packets_received:%d|c", packet_counter);
+            //enqueue(requeue, metric_name5);
             printf("Packets Since Last Logging: %d\n", packet_counter); 
         }        
         packet_counter = 0;
