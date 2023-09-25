@@ -55,10 +55,8 @@ void *worker_thread(void *arg) {
             time_t current_time_pack = time(NULL);
             if (error_counter_pack == 0 || difftime(current_time_pack, error_time_pack) >= 60) {
                 if (difftime(current_time_pack, error_time_pack) >= 60) {
-                    //printf("Worker %d: %d packets sent\n", args->workerID, current_packets);
                     pthread_mutex_lock(&queue->mutex);
                     if(queue->currentSize > 0) {
-                        write_log("WorkerID: %d, QueueSize: %d", args->workerID, queue->currentSize);
                         char metric_name_queue[256];
                         snprintf(metric_name_queue, 256, "Worker-%d.QueueSize", args->workerID);
                         injectMetric(metric_name_queue, queue->currentSize);
@@ -95,7 +93,6 @@ void *worker_thread(void *arg) {
                     char metric_name2[256];
                     snprintf(metric_name2, 256, "Worker-%d.PacketsDropped",current_packets);
                     injectMetric(metric_name2, current_packets);
-                    //printf("Error sending packet to %s:%d\n", inet_ntoa(destAddr.sin_addr), ntohs(destAddr.sin_port));
                     error_counter++;
                     if (error_counter == 1) {
                         error_time = current_time;
@@ -107,7 +104,7 @@ void *worker_thread(void *arg) {
             }
         } else {
             if (difftime(time(NULL), last_packet_time) >= 5) {
-                printf("Exiting thread due to inactivity.\n");
+                write_log("Exiting thread due to inactivity.\n");
                 return 0;  // Exit the thread
             }
         }

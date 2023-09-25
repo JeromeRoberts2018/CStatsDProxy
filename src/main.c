@@ -114,7 +114,7 @@ void *monitor_worker_threads(void *arg) {
 
 
 int main() {
-    printf("Starting CStatsDProxy server: Version %s\n", VERSION);
+    write_log("Starting CStatsDProxy server: Version %s\n", VERSION);
 
     if (read_config("conf/config.conf") == -1) {
         write_log("Failed to read configuration");
@@ -145,7 +145,6 @@ int main() {
     write_log("Starting %d worker threads", MAX_THREADS);
     for (int i = 0; i < MAX_THREADS; ++i) {
         queues[i] = initQueue(MAX_QUEUE_SIZE);
-        //sleep(1); //this may or may not prevent segfaults
         args[i].queue = queues[i];
         args[i].udpSocket = sharedUdpSocket;
         args[i].destAddr = destAddr;

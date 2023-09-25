@@ -5,6 +5,10 @@
 #include <pthread.h>
 #include "global.h"
 
+// Requeue is currently only being used to inject metrics into the worker threads
+// It is not being used to requeue packets that failed to send
+// the end goal is to use this to requeue packets that failed to send and to queue metrics
+
 Queue *requeue = NULL; 
 
 struct RequeueArgs {
