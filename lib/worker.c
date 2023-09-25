@@ -56,11 +56,20 @@ void *worker_thread(void *arg) {
             if (error_counter_pack == 0 || difftime(current_time_pack, error_time_pack) >= 60) {
                 if (difftime(current_time_pack, error_time_pack) >= 60) {
                     printf("Worker %d: %d packets sent\n", args->workerID, current_packets);
+                    pthread_mutex_lock(&queue->mutex);
+                    if(queue->currentSize > 0) {
+                        write_log("WorkerID: %d, QueueSize: %d", args->workerID, queue->currentSize);
+                        char metric_name_queue[256];
+                        snprintf(metric_name_queue, 256, "Worker-%d.QueueSize", args->workerID);
+                        injectMetric(metric_name_queue, queue->currentSize);
+                    }
+                    pthread_mutex_unlock(&queue->mutex);
                     char metric_name[256];
                     snprintf(metric_name, 256, "Worker-%d.PacketsSent", args->workerID);
                     injectMetric(metric_name, current_packets);
                     error_counter_pack = 0;
                     current_packets = 0;
+
                 }
                 
                 error_counter_pack++;

@@ -217,24 +217,10 @@ int main() {
 }
 
 void *logging_thread(void *arg) {
-    struct WorkerArgs *workerArgs = (struct WorkerArgs *) arg;
-    int numWorkers = MAX_THREADS;
     set_thread_name("IntraLogger");
 
     while (1) {
         sleep(LOGGING_INTERVAL);
-
-        for (int i = 0; i < numWorkers; ++i) {
-            Queue *queue = workerArgs[i].queue;
-            pthread_mutex_lock(&queue->mutex);
-            if (queue->currentSize > 1) { 
-                write_log("WorkerID: %d, QueueSize: %d", workerArgs[i].workerID, queue->currentSize);
-                char metric_name4[256];
-                snprintf(metric_name4, 256, "CStatsDProxy.metrics.Worker-%d.QueueSize:%d", i, queue->currentSize);
-                enqueue(requeue, metric_name4);                
-            }
-            pthread_mutex_unlock(&queue->mutex);
-        }
         
         pthread_mutex_lock(&packet_counter_mutex);
         if (packet_counter > 1) {

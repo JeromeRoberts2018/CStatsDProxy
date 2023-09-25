@@ -16,7 +16,7 @@ CC = gcc
 LD = gcc
 
 # Compiler and linker flags
-CFLAGS = -Wall -c -std=gnu99 -D_GNU_SOURCE
+CFLAGS = -Wall -c
 LDFLAGS = -lpthread
 
 # Build rules
