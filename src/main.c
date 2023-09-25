@@ -28,6 +28,8 @@ int CLONE_ENABLED;
 int CLONE_DEST_UDP_PORT;
 char CLONE_DEST_UDP_IP[50];
 
+char VERSION[] = "0.9.1";
+
 int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 Queue **queues = NULL;
@@ -39,8 +41,6 @@ struct WorkerArgs {
     int workerID;
     int bufferSize;
 };
-
-void *logging_thread(void *arg);
 
 int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *address) {
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -114,7 +114,7 @@ void *monitor_worker_threads(void *arg) {
 
 
 int main() {
-    printf("Starting CStatsDProxy server...\n");
+    printf("Starting CStatsDProxy server: Version %s\n", VERSION);
 
     if (read_config("conf/config.conf") == -1) {
         write_log("Failed to read configuration");
@@ -157,18 +157,14 @@ int main() {
     pthread_t monitor_thread;
     pthread_create(&monitor_thread, NULL, monitor_worker_threads, &monitorArgs);
 
-
     pthread_t requeueThread;
     if (init_requeue_thread(&requeueThread, MAX_THREADS, queues) != 0) {
         write_log("Failed to initialize requeue thread");
         return 1;
     }
 
-
     if (LOGGING_ENABLED) {
         write_log("Logging enabled");
-        pthread_t log_thread;
-        pthread_create(&log_thread, NULL, logging_thread, args);
     }
     
     int RoundRobinCounter = 0;
@@ -183,22 +179,13 @@ int main() {
             if (isMetricValid(buffer)) {
                 enqueue(queues[RoundRobinCounter], buffer);
                 RoundRobinCounter = (RoundRobinCounter + 1) % MAX_THREADS;
-
-                if (LOGGING_ENABLED) {
-                    pthread_mutex_lock(&packet_counter_mutex);
-                    packet_counter++;
-                    pthread_mutex_unlock(&packet_counter_mutex);
-                }
             } else {
                 injectMetric("invalid_packets", 1);
-                write_log("Invalid packet received: %s", buffer);
                 free(buffer); 
             }
         } else if (recvLen == 0) {
-            if (LOGGING_ENABLED) { write_log("Received zero bytes. Connection closed or terminated."); }
             free(buffer); 
         } else {
-            if (LOGGING_ENABLED) { write_log("recvfrom() returned an error: %zd", recvLen); }
             free(buffer); 
         }
     }
@@ -214,25 +201,4 @@ int main() {
     close(udpSocket);
 
     return 0;
-}
-
-void *logging_thread(void *arg) {
-    set_thread_name("IntraLogger");
-
-    while (1) {
-        sleep(LOGGING_INTERVAL);
-        
-        pthread_mutex_lock(&packet_counter_mutex);
-        if (packet_counter > 1) {
-            //char metric_name5[256];
-            //snprintf(metric_name5, 256, "CStatsDProxy.metrics.packets_received:%d|c", packet_counter);
-            //enqueue(requeue, metric_name5);
-            printf("Packets Since Last Logging: %d\n", packet_counter); 
-        }        
-        packet_counter = 0;
-        pthread_mutex_unlock(&packet_counter_mutex);
-
-    }
-
-    return NULL;
 }
