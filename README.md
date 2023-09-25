@@ -1,4 +1,4 @@
-# CStatsDProxy 0.8.1
+# CStatsDProxy 0.9.1
 
 ## Overview
 
@@ -9,11 +9,17 @@ CStatsDProxy is a high-performance, multithreaded StatsD proxy written in C. The
 - Multithreaded architecture for handling multiple StatsD packets concurrently
 - Efficient queuing mechanism to handle bursts of incoming packets
 - Configurable settings via a configuration file
+- Supports packet cloning for dual-destination delivery
+- Load-tested to handle over 3.5 million packets per minute
+- Provides statistical data from each worker thread managing traffic
 
 ## Requirements
 
 - GCC or any C compiler
 - POSIX compliant OS for threading
+- Linux (Ubuntu), Windows, Mac compliant for running
+- (runs as a service only on Linux)
+
 
 ## Installation
 Full installation will also install a service and run that service
@@ -24,6 +30,7 @@ cd CStatsDProxy
 make
 make install
 ```
+
 ## Configuration
 
 The behavior of the CStatsDProxy can be modified via the `config.conf` file, you will find notes in that file.
