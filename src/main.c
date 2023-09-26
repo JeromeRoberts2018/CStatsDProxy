@@ -12,6 +12,7 @@
 #include "lib/config_reader.h"
 #include "lib/requeue.h"
 #include "lib/global.h"
+#include "http.h"
 
 
 int UDP_PORT;
@@ -128,6 +129,15 @@ int main() {
             write_log("Cloning to %s:%d", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
         }
     }
+    HttpConfig config;
+    config.port = 8080;
+    strncpy(config.ip_address, "0.0.0.0", sizeof(config.ip_address));
+
+    pthread_t http_thread;
+    if (pthread_create(&http_thread, NULL, http_server, (void *)&config) < 0) {
+        perror("could not create http server thread");
+        return 1;
+    }
 
     struct sockaddr_in destAddr, serverAddr;
     int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr);
@@ -195,6 +205,7 @@ int main() {
         pthread_join(threads[i], NULL);
     }
     pthread_cancel(monitor_thread);
+    pthread_join(http_thread, NULL);
     pthread_join(monitor_thread, NULL);
     close(sharedUdpSocket);
     close(udpSocket);
