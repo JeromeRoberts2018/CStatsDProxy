@@ -56,15 +56,17 @@ void *worker_thread(void *arg) {
             if (error_counter_pack == 0 || difftime(current_time_pack, error_time_pack) >= 60) {
                 if (difftime(current_time_pack, error_time_pack) >= 60) {
                     pthread_mutex_lock(&queue->mutex);
-                    if(queue->currentSize > 0) {
+                    if(queue->currentSize > 1) {
                         char metric_name_queue[256];
                         snprintf(metric_name_queue, 256, "Worker-%d.QueueSize", args->workerID);
                         injectMetric(metric_name_queue, queue->currentSize);
                     }
                     pthread_mutex_unlock(&queue->mutex);
-                    char metric_name[256];
-                    snprintf(metric_name, 256, "Worker-%d.PacketsSent", args->workerID);
-                    injectMetric(metric_name, current_packets);
+                    if (current_packets > 1) {
+                        char metric_name[256];
+                        snprintf(metric_name, 256, "Worker-%d.PacketsSent", args->workerID);
+                        injectMetric(metric_name, current_packets);
+                    }
                     error_counter_pack = 0;
                     current_packets = 0;
 
