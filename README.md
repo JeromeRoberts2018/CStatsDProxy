@@ -1,4 +1,4 @@
-# CStatsDProxy 0.9.4-beta
+# CStatsDProxy 0.9.4-stable
 
 ## Overview
 
@@ -25,6 +25,9 @@ CStatsDProxy is a high-performance, multithreaded StatsD proxy written in C. The
 - Linux (Ubuntu), Windows, Mac compliant for running
 - (runs as a service only on Linux)
 
+## HTTP Health Check
+
+The HTTP service features a /healthcheck URL endpoint that is designed to accommodate any extensions, such as /healthcheck?nonce=abc123. This flexibility allows for bypassing proxy caching when necessary. When accessed, the endpoint returns an HTTP 200 status code along with an 'OK' message to confirm that the service is fully operational.
 
 ## Installation
 Full installation will also install a service and run that service

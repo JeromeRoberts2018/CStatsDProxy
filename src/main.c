@@ -28,6 +28,9 @@ int LOGGING_ENABLED;
 int CLONE_ENABLED;
 int CLONE_DEST_UDP_PORT;
 char CLONE_DEST_UDP_IP[50];
+int HTTP_ENABLED;
+int HTTP_PORT;
+char HTTP_LISTEN_IP[16];
 
 char VERSION[] = "0.9.1";
 
@@ -129,13 +132,13 @@ int main() {
             write_log("Cloning to %s:%d", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
         }
     }
-    HttpConfig config;
-    config.port = 8080;
-    strncpy(config.ip_address, "0.0.0.0", sizeof(config.ip_address));
 
+    HttpConfig config;
+    config.port = HTTP_PORT;
+    strncpy(config.ip_address, HTTP_LISTEN_IP, sizeof(config.ip_address));
     pthread_t http_thread;
     if (pthread_create(&http_thread, NULL, http_server, (void *)&config) < 0) {
-        perror("could not create http server thread");
+        write_log("could not create http server thread");
         return 1;
     }
 
@@ -205,7 +208,9 @@ int main() {
         pthread_join(threads[i], NULL);
     }
     pthread_cancel(monitor_thread);
-    pthread_join(http_thread, NULL);
+    if (HTTP_ENABLED) {
+        pthread_join(http_thread, NULL);
+    }
     pthread_join(monitor_thread, NULL);
     close(sharedUdpSocket);
     close(udpSocket);

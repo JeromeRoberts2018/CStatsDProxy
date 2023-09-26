@@ -83,6 +83,13 @@ int read_config(const char *filepath) {
         } else if (case_insensitive_compare(key, "CLONE_DEST_UDP_IP")) {
             strncpy(CLONE_DEST_UDP_IP, value, sizeof(CLONE_DEST_UDP_IP) - 1);
             CLONE_DEST_UDP_IP[sizeof(CLONE_DEST_UDP_IP) - 1] = '\0'; // Ensure null-termination
+        } else if (case_insensitive_compare(key, "HTTP_ENABLED")) {
+            HTTP_ENABLED = atoi(value);
+        } else if (case_insensitive_compare(key, "HTTP_PORT")) {
+            HTTP_PORT = atoi(value);
+        } else if (case_insensitive_compare(key, "HTTP_LISTEN_IP")) {
+            strncpy(HTTP_LISTEN_IP, value, sizeof(HTTP_LISTEN_IP) - 1);
+            HTTP_LISTEN_IP[sizeof(HTTP_LISTEN_IP) - 1] = '\0'; // Ensure null-termination
         }
     }
 

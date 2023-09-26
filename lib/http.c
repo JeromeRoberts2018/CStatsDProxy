@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <arpa/inet.h>
+#include "logger.h"
 
 void *handle_request(void *client_sock) {
     int sock = *((int *)client_sock);
@@ -37,6 +38,13 @@ void *handle_request(void *client_sock) {
 }
 
 void *http_server(void *arg) {
+    if (arg == NULL) {
+        return NULL;
+    }
+    if (HTTP_ENABLED == 0) {
+        return NULL;
+    }
+    write_log("Starting HTTP server");
     HttpConfig *config = (HttpConfig *)arg;
 
     int sockfd, newsockfd;

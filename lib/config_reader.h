@@ -15,5 +15,9 @@ extern int LOGGING_ENABLED;
 extern int CLONE_ENABLED;
 extern int CLONE_DEST_UDP_PORT;
 extern char CLONE_DEST_UDP_IP[50];
+extern int HTTP_ENABLED;
+extern int HTTP_PORT;
+extern char HTTP_LISTEN_IP[16];
+
 
 #endif // CONFIG_READER_H
