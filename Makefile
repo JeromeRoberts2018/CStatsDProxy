@@ -8,7 +8,7 @@ DEFINES = -DBASE_DIR=\"$(BASE_DIR)\"
 INSTALL_DIR = /usr/sbin
 
 # Source files and object files
-SRC = src/main.c lib/logger.c lib/config_reader.c lib/queue.c lib/worker.c lib/global.c lib/requeue.c
+SRC = src/main.c lib/logger.c lib/config_reader.c lib/queue.c lib/worker.c lib/global.c lib/requeue.c lib/http.c
 OBJ = $(SRC:.c=.o)
 
 # Compiler and linker

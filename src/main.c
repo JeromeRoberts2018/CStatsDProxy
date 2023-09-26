@@ -12,6 +12,7 @@
 #include "lib/config_reader.h"
 #include "lib/requeue.h"
 #include "lib/global.h"
+#include "http.h"
 
 
 int UDP_PORT;
@@ -27,6 +28,9 @@ int LOGGING_ENABLED;
 int CLONE_ENABLED;
 int CLONE_DEST_UDP_PORT;
 char CLONE_DEST_UDP_IP[50];
+int HTTP_ENABLED;
+int HTTP_PORT;
+char HTTP_LISTEN_IP[16];
 
 char VERSION[] = "0.9.1";
 
@@ -129,6 +133,15 @@ int main() {
         }
     }
 
+    HttpConfig config;
+    config.port = HTTP_PORT;
+    strncpy(config.ip_address, HTTP_LISTEN_IP, sizeof(config.ip_address));
+    pthread_t http_thread;
+    if (pthread_create(&http_thread, NULL, http_server, (void *)&config) < 0) {
+        write_log("could not create http server thread");
+        return 1;
+    }
+
     struct sockaddr_in destAddr, serverAddr;
     int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr);
     int udpSocket = initialize_listener_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr);
@@ -195,6 +208,9 @@ int main() {
         pthread_join(threads[i], NULL);
     }
     pthread_cancel(monitor_thread);
+    if (HTTP_ENABLED) {
+        pthread_join(http_thread, NULL);
+    }
     pthread_join(monitor_thread, NULL);
     close(sharedUdpSocket);
     close(udpSocket);
