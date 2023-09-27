@@ -13,6 +13,7 @@
 #include "lib/requeue.h"
 #include "lib/global.h"
 #include "http.h"
+#include <sys/time.h>
 
 
 int UDP_PORT;
@@ -31,6 +32,7 @@ char CLONE_DEST_UDP_IP[50];
 int HTTP_ENABLED;
 int HTTP_PORT;
 char HTTP_LISTEN_IP[16];
+int OUTBOUND_UDP_TIMEOUT;
 
 char VERSION[] = "0.9.1";
 
@@ -45,6 +47,7 @@ struct WorkerArgs {
     int workerID;
     int bufferSize;
 };
+
 
 int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *address) {
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -150,6 +153,13 @@ int main() {
         return 1;
     } else {
         write_log("Sockets initialized");
+    }
+
+    struct timeval timeout;
+    timeout.tv_sec = OUTBOUND_UDP_TIMEOUT;  // Use the defined constant
+    timeout.tv_usec = 0;
+    if (setsockopt(sharedUdpSocket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+        write_log("setsockopt failed");
     }
 
     pthread_t threads[MAX_THREADS];
