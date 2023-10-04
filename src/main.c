@@ -48,6 +48,20 @@ struct WorkerArgs {
     int bufferSize;
 };
 
+int create_thread_with_retry(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine) (void *), void *arg, int max_retries) {
+    int retries = 0;
+    int result;
+    while (retries < max_retries) {
+        result = pthread_create(thread, attr, start_routine, arg);
+        if (result == 0) {
+            return 1; // Successfully created the thread
+        }
+        retries++;
+        fprintf(stderr, "Thread creation failed. Retrying %d/%d\n", retries, max_retries);
+        sleep(1); // Wait for a short while before retrying
+    }
+    return 0; // Failed to create the thread after max_retries
+}
 
 int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *address) {
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -173,7 +187,10 @@ int main() {
         args[i].destAddr = destAddr;
         args[i].workerID = i;
         args[i].bufferSize = BUFFER_SIZE;
-        pthread_create(&threads[i], NULL, worker_thread, &args[i]);
+        if (!create_thread_with_retry(&threads[i], NULL, worker_thread, &args[i], 10)) {
+            fprintf(stderr, "Failed to create thread after multiple attempts. Exiting.\n");
+            exit(EXIT_FAILURE);
+        }
     }
     struct MonitorArgs monitorArgs = { threads, args, MAX_THREADS };
     pthread_t monitor_thread;
