@@ -45,10 +45,3 @@ This project is written in C, and we follow the ANSI C standard as closely as po
     ```
 
 7. **Submit a Pull Request**: Go to your fork on GitHub and click the "New Pull Request" button, and follow the prompts to create a pull request.
-
-## Testing
-
-Before submitting your changes, make sure all existing tests pass. If you are introducing new functionality, please write new tests to cover it. Refer to the Makefile for running tests:
-
-```bash
-make tests
