@@ -1,4 +1,4 @@
-# CStatsDProxy 0.9.6-stable
+# CStatsDProxy 0.9.6.1-stable
 
 ## Overview
 
