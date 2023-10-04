@@ -34,7 +34,7 @@ int HTTP_PORT;
 char HTTP_LISTEN_IP[16];
 int OUTBOUND_UDP_TIMEOUT;
 
-char VERSION[] = "0.9.1";
+char VERSION[] = "0.9.5";
 
 int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
