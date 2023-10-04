@@ -18,6 +18,7 @@ extern char CLONE_DEST_UDP_IP[50];
 extern int HTTP_ENABLED;
 extern int HTTP_PORT;
 extern char HTTP_LISTEN_IP[16];
+extern int OUTBOUND_UDP_TIMEOUT;
 
 
 #endif // CONFIG_READER_H

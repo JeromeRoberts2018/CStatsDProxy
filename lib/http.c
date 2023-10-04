@@ -26,7 +26,16 @@ void *handle_request(void *client_sock) {
                       "\r\n"
                       "404";
 
-    read(sock, buffer, 255);
+    ssize_t bytes_read = read(sock, buffer, sizeof(buffer) - 1);
+    if (bytes_read < 0) {
+        perror("read failed");
+        return NULL;
+    }
+    if (bytes_read > 0 && bytes_read < sizeof(buffer)) {
+        buffer[bytes_read] = '\0';
+    }
+
+
     if (strstr(buffer, "/healthcheck")) {
         write(sock, response, sizeof(response) - 1);
     } else {
@@ -52,20 +61,36 @@ void *http_server(void *arg) {
     socklen_t clilen;
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-
+    if (sockfd < 0) {
+        perror("socket creation failed");
+        return NULL;
+    }
     bzero((char *)&serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(config->port);
     inet_pton(AF_INET, config->ip_address, &(serv_addr.sin_addr));
 
-    bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
-    listen(sockfd, 5);
+    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        perror("bind failed");
+        return NULL;
+    }
+
+    if (listen(sockfd, 5) < 0) {
+        perror("listen failed");
+        return NULL;
+    }
+
     clilen = sizeof(cli_addr);
 
     while (1) {
         newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
+        if (newsockfd < 0) {
+            perror("accept failed");
+            return NULL;
+        }
+;
 
-        int *new_sock = malloc(1);
+        int *new_sock = malloc(sizeof(int));
         *new_sock = newsockfd;
 
         pthread_t client_thread;
@@ -73,6 +98,7 @@ void *http_server(void *arg) {
             perror("could not create thread");
             return NULL;
         }
+        pthread_detach(client_thread);
     }
 
     return NULL;

@@ -90,6 +90,8 @@ int read_config(const char *filepath) {
         } else if (case_insensitive_compare(key, "HTTP_LISTEN_IP")) {
             strncpy(HTTP_LISTEN_IP, value, sizeof(HTTP_LISTEN_IP) - 1);
             HTTP_LISTEN_IP[sizeof(HTTP_LISTEN_IP) - 1] = '\0'; // Ensure null-termination
+        } else if (case_insensitive_compare(key, "OUTBOUND_UDP_TIMEOUT")) {
+            OUTBOUND_UDP_TIMEOUT = atoi(value);
         }
     }
 

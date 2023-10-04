@@ -13,6 +13,7 @@
 #include "lib/requeue.h"
 #include "lib/global.h"
 #include "http.h"
+#include <sys/time.h>
 
 
 int UDP_PORT;
@@ -31,8 +32,9 @@ char CLONE_DEST_UDP_IP[50];
 int HTTP_ENABLED;
 int HTTP_PORT;
 char HTTP_LISTEN_IP[16];
+int OUTBOUND_UDP_TIMEOUT;
 
-char VERSION[] = "0.9.1";
+char VERSION[] = "0.9.5";
 
 int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -45,6 +47,21 @@ struct WorkerArgs {
     int workerID;
     int bufferSize;
 };
+
+int create_thread_with_retry(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine) (void *), void *arg, int max_retries) {
+    int retries = 0;
+    int result;
+    while (retries < max_retries) {
+        result = pthread_create(thread, attr, start_routine, arg);
+        if (result == 0) {
+            return 1; // Successfully created the thread
+        }
+        retries++;
+        fprintf(stderr, "Thread creation failed. Retrying %d/%d\n", retries, max_retries);
+        sleep(1); // Wait for a short while before retrying
+    }
+    return 0; // Failed to create the thread after max_retries
+}
 
 int initialize_shared_udp_socket(const char *ip, int port, struct sockaddr_in *address) {
     int udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -152,6 +169,13 @@ int main() {
         write_log("Sockets initialized");
     }
 
+    struct timeval timeout;
+    timeout.tv_sec = OUTBOUND_UDP_TIMEOUT;  // Use the defined constant
+    timeout.tv_usec = 0;
+    if (setsockopt(sharedUdpSocket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+        write_log("setsockopt failed");
+    }
+
     pthread_t threads[MAX_THREADS];
     struct WorkerArgs args[MAX_THREADS];
     queues = malloc(sizeof(Queue*) * MAX_QUEUE_SIZE);
@@ -163,7 +187,10 @@ int main() {
         args[i].destAddr = destAddr;
         args[i].workerID = i;
         args[i].bufferSize = BUFFER_SIZE;
-        pthread_create(&threads[i], NULL, worker_thread, &args[i]);
+        if (!create_thread_with_retry(&threads[i], NULL, worker_thread, &args[i], 10)) {
+            fprintf(stderr, "Failed to create thread after multiple attempts. Exiting.\n");
+            exit(EXIT_FAILURE);
+        }
     }
     struct MonitorArgs monitorArgs = { threads, args, MAX_THREADS };
     pthread_t monitor_thread;
