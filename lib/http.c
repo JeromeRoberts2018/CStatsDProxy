@@ -89,7 +89,6 @@ void *http_server(void *arg) {
             perror("accept failed");
             return NULL;
         }
-;
 
         int *new_sock = malloc(sizeof(int));
         *new_sock = newsockfd;
