@@ -9,7 +9,7 @@
 #include "worker.h"
 #include "logger.h"
 #include "global.h"
-
+#include "config_reader.h"
 
 extern int CLONE_ENABLED;
 extern int CLONE_DEST_UDP_PORT;
@@ -74,8 +74,8 @@ void *worker_thread(void *arg) {
 
     // Initialize variables for the destination address of the cloned packets.
     cloneDestAddr.sin_family = AF_INET;
-    cloneDestAddr.sin_port = htons(CLONE_DEST_UDP_PORT);
-    inet_aton(CLONE_DEST_UDP_IP, &cloneDestAddr.sin_addr);
+    cloneDestAddr.sin_port = htons(config.CLONE_DEST_UDP_PORT);
+    inet_aton(config.CLONE_DEST_UDP_IP, &cloneDestAddr.sin_addr);
 
     // Initialize error tracking variables.
     int error_counter = 0;
@@ -134,7 +134,7 @@ void *worker_thread(void *arg) {
             ssize_t sentBytes = sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
 
             // If cloning is enabled, send the packet to the cloned destination.
-            if (CLONE_ENABLED) {
+            if (config.CLONE_ENABLED) {
                 sendto(udpSocket, buffer, strlen(buffer), 0, (struct sockaddr *)&cloneDestAddr, sizeof(cloneDestAddr));
             }
 

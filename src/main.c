@@ -15,26 +15,7 @@
 #include "http.h"
 #include <sys/time.h>
 
-
-int UDP_PORT;
-char LISTEN_UDP_IP[16];
-int DEST_UDP_PORT;
-char DEST_UDP_IP[16];
-int MAX_MESSAGE_SIZE;
-int BUFFER_SIZE;
-int MAX_THREADS;
-int MAX_QUEUE_SIZE;
-int LOGGING_INTERVAL;
-int LOGGING_ENABLED;
-int CLONE_ENABLED;
-int CLONE_DEST_UDP_PORT;
-char CLONE_DEST_UDP_IP[50];
-int HTTP_ENABLED;
-int HTTP_PORT;
-char HTTP_LISTEN_IP[16];
-int OUTBOUND_UDP_TIMEOUT;
-
-char VERSION[] = "0.9.5";
+char VERSION[] = "0.9.6";
 
 int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -119,7 +100,7 @@ void *monitor_worker_threads(void *arg) {
         for (int i = 0; i < num_threads; ++i) {
             int ret = pthread_kill(threads[i], 0);  // Check the thread status
             if (ret != 0) {
-                if (LOGGING_ENABLED) {
+                if (config.LOGGING_ENABLED) {
                     write_log("StatsD Worker Thread %d died. Restarting...", i);
                 }
                 pthread_cancel(threads[i]);
@@ -142,17 +123,17 @@ int main() {
         return 1;
     }
 
-    if (LOGGING_ENABLED) {
-        write_log("Starting server on %s:%d", LISTEN_UDP_IP, UDP_PORT);
-        write_log("Forwarding to %s:%d", DEST_UDP_IP, DEST_UDP_PORT);
-        if (CLONE_ENABLED) {
-            write_log("Cloning to %s:%d", CLONE_DEST_UDP_IP, CLONE_DEST_UDP_PORT);
+    if (config.LOGGING_ENABLED) {
+        write_log("Starting server on %s:%d", config.LISTEN_UDP_IP, config.UDP_PORT);
+        write_log("Forwarding to %s:%d", config.DEST_UDP_IP, config.DEST_UDP_PORT);
+        if (config.CLONE_ENABLED) {
+            write_log("Cloning to %s:%d", config.CLONE_DEST_UDP_IP, config.CLONE_DEST_UDP_PORT);
         }
     }
 
-    HttpConfig config;
-    config.port = HTTP_PORT;
-    strncpy(config.ip_address, HTTP_LISTEN_IP, sizeof(config.ip_address));
+    HttpConfig conf;
+    conf.port = config.HTTP_PORT;
+    strncpy(conf.ip_address, config.HTTP_LISTEN_IP, sizeof(conf.ip_address));
     pthread_t http_thread;
     if (pthread_create(&http_thread, NULL, http_server, (void *)&config) < 0) {
         write_log("could not create http server thread");
@@ -160,8 +141,8 @@ int main() {
     }
 
     struct sockaddr_in destAddr, serverAddr;
-    int sharedUdpSocket = initialize_shared_udp_socket(DEST_UDP_IP, DEST_UDP_PORT, &destAddr);
-    int udpSocket = initialize_listener_udp_socket(LISTEN_UDP_IP, UDP_PORT, &serverAddr);
+    int sharedUdpSocket = initialize_shared_udp_socket(config.DEST_UDP_IP, config.DEST_UDP_PORT, &destAddr);
+    int udpSocket = initialize_listener_udp_socket(config.LISTEN_UDP_IP, config.UDP_PORT, &serverAddr);
     if (sharedUdpSocket == -1 || udpSocket == -1) {
         write_log("Failed to initialize sockets");
         return 1;
@@ -170,54 +151,54 @@ int main() {
     }
 
     struct timeval timeout;
-    timeout.tv_sec = OUTBOUND_UDP_TIMEOUT;  // Use the defined constant
+    timeout.tv_sec = config.OUTBOUND_UDP_TIMEOUT;  // Use the defined constant
     timeout.tv_usec = 0;
     if (setsockopt(sharedUdpSocket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
         write_log("setsockopt failed");
     }
 
-    pthread_t threads[MAX_THREADS];
-    struct WorkerArgs args[MAX_THREADS];
-    queues = malloc(sizeof(Queue*) * MAX_QUEUE_SIZE);
-    write_log("Starting %d worker threads", MAX_THREADS);
-    for (int i = 0; i < MAX_THREADS; ++i) {
-        queues[i] = initQueue(MAX_QUEUE_SIZE);
+    pthread_t threads[config.MAX_THREADS];
+    struct WorkerArgs args[config.MAX_THREADS];
+    queues = malloc(sizeof(Queue*) * config.MAX_QUEUE_SIZE);
+    write_log("Starting %d worker threads", config.MAX_THREADS);
+    for (int i = 0; i < config.MAX_THREADS; ++i) {
+        queues[i] = initQueue(config.MAX_QUEUE_SIZE);
         args[i].queue = queues[i];
         args[i].udpSocket = sharedUdpSocket;
         args[i].destAddr = destAddr;
         args[i].workerID = i;
-        args[i].bufferSize = BUFFER_SIZE;
+        args[i].bufferSize = config.BUFFER_SIZE;
         if (!create_thread_with_retry(&threads[i], NULL, worker_thread, &args[i], 10)) {
             fprintf(stderr, "Failed to create thread after multiple attempts. Exiting.\n");
             exit(EXIT_FAILURE);
         }
     }
-    struct MonitorArgs monitorArgs = { threads, args, MAX_THREADS };
+    struct MonitorArgs monitorArgs = { threads, args, config.MAX_THREADS };
     pthread_t monitor_thread;
     pthread_create(&monitor_thread, NULL, monitor_worker_threads, &monitorArgs);
 
     pthread_t requeueThread;
-    if (init_requeue_thread(&requeueThread, MAX_THREADS, queues) != 0) {
+    if (init_requeue_thread(&requeueThread, config.MAX_THREADS, queues) != 0) {
         write_log("Failed to initialize requeue thread");
         return 1;
     }
 
-    if (LOGGING_ENABLED) {
+    if (config.LOGGING_ENABLED) {
         write_log("Logging enabled");
     }
     
     int RoundRobinCounter = 0;
     while (1) {
-        char *buffer = malloc(MAX_MESSAGE_SIZE);
+        char *buffer = malloc(config.MAX_MESSAGE_SIZE);
         struct sockaddr_in clientAddr;
         socklen_t addrSize = sizeof(clientAddr);
-        ssize_t recvLen = recvfrom(udpSocket, buffer, MAX_MESSAGE_SIZE - 1, 0, (struct sockaddr *)&clientAddr, &addrSize);
+        ssize_t recvLen = recvfrom(udpSocket, buffer, config.MAX_MESSAGE_SIZE - 1, 0, (struct sockaddr *)&clientAddr, &addrSize);
 
         if (recvLen > 0) {
             buffer[recvLen] = '\0';
             if (isMetricValid(buffer)) {
                 enqueue(queues[RoundRobinCounter], buffer);
-                RoundRobinCounter = (RoundRobinCounter + 1) % MAX_THREADS;
+                RoundRobinCounter = (RoundRobinCounter + 1) % config.MAX_THREADS;
             } else {
                 injectMetric("invalid_packets", 1);
                 free(buffer); 
@@ -230,12 +211,12 @@ int main() {
     }
 
 
-    for (int i = 0; i < MAX_THREADS; ++i) {
+    for (int i = 0; i < config.MAX_THREADS; ++i) {
         pthread_cancel(threads[i]);
         pthread_join(threads[i], NULL);
     }
     pthread_cancel(monitor_thread);
-    if (HTTP_ENABLED) {
+    if (config.HTTP_ENABLED) {
         pthread_join(http_thread, NULL);
     }
     pthread_join(monitor_thread, NULL);

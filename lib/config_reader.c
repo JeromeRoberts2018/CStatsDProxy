@@ -1,10 +1,21 @@
+/**
+ * @file config_reader.c
+ * @brief Implementation of functions to read configuration from a file.
+ * 
+ * This file contains the implementation of the read_config function, which reads configuration
+ * from a file and stores it in a Config struct. The file must be in the format of key-value pairs
+ * separated by an equal sign (=). Lines starting with '#' are ignored. The function returns 0 on
+ * success and -1 on failure.
+ */
 #include "config_reader.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-void trim(char *str) {
+Config config;
+
+static void trim(char *str) {
     if (str == NULL) {
         return;
     }
@@ -16,7 +27,7 @@ void trim(char *str) {
     *(end + 1) = 0;
 }
 
-int case_insensitive_compare(const char *str1, const char *str2) {
+static int case_insensitive_compare(const char *str1, const char *str2) {
     if (!str1 || !str2) {
         return 0;
     }
@@ -32,6 +43,12 @@ int case_insensitive_compare(const char *str1, const char *str2) {
     return (*str1 == '\0' && *str2 == '\0');
 }
 
+/**
+ * Reads configuration values from a file and sets them in the global `config` struct.
+ * 
+ * @param filepath The path to the configuration file.
+ * @return Returns 0 on success, -1 if the file could not be opened.
+ */
 int read_config(const char *filepath) {
     FILE *file = fopen(filepath, "r");
     if (file == NULL) {
@@ -55,43 +72,43 @@ int read_config(const char *filepath) {
         }
 
         if (case_insensitive_compare(key, "UDP_PORT")) {
-            UDP_PORT = atoi(value);
+            config.UDP_PORT = atoi(value);
         } else if (case_insensitive_compare(key, "LISTEN_UDP_IP")) {
-            strncpy(LISTEN_UDP_IP, value, sizeof(LISTEN_UDP_IP) - 1);
-            LISTEN_UDP_IP[sizeof(LISTEN_UDP_IP) - 1] = '\0'; // Ensure null-termination
+            strncpy(config.LISTEN_UDP_IP, value, sizeof(config.LISTEN_UDP_IP) - 1);
+            config.LISTEN_UDP_IP[sizeof(config.LISTEN_UDP_IP) - 1] = '\0'; // Ensure null-termination
         } else if (case_insensitive_compare(key, "DEST_UDP_PORT")) {
-            DEST_UDP_PORT = atoi(value);
+            config.DEST_UDP_PORT = atoi(value);
         } else if (case_insensitive_compare(key, "DEST_UDP_IP")) {
-            strncpy(DEST_UDP_IP, value, sizeof(DEST_UDP_IP) - 1);
-            DEST_UDP_IP[sizeof(DEST_UDP_IP) - 1] = '\0'; // Ensure null-termination
+            strncpy(config.DEST_UDP_IP, value, sizeof(config.DEST_UDP_IP) - 1);
+            config.DEST_UDP_IP[sizeof(config.DEST_UDP_IP) - 1] = '\0'; // Ensure null-termination
         } else if (case_insensitive_compare(key, "MAX_MESSAGE_SIZE")) {
-            MAX_MESSAGE_SIZE = atoi(value);
+            config.MAX_MESSAGE_SIZE = atoi(value);
         } else if (case_insensitive_compare(key, "BUFFER_SIZE")) {
-            BUFFER_SIZE = atoi(value);
+            config.BUFFER_SIZE = atoi(value);
         } else if (case_insensitive_compare(key, "MAX_THREADS")) {
-            MAX_THREADS = atoi(value);
+            config.MAX_THREADS = atoi(value);
         } else if (case_insensitive_compare(key, "MAX_QUEUE_SIZE")) {
-            MAX_QUEUE_SIZE = atoi(value);
+            config.MAX_QUEUE_SIZE = atoi(value);
         } else if (case_insensitive_compare(key, "LOGGING_INTERVAL")) {
-            LOGGING_INTERVAL = atoi(value);
+            config.LOGGING_INTERVAL = atoi(value);
         } else if (case_insensitive_compare(key, "LOGGING_ENABLED")) {
-            LOGGING_ENABLED = atoi(value);
+            config.LOGGING_ENABLED = atoi(value);
         } else if (case_insensitive_compare(key, "CLONE_ENABLED")) {
-            CLONE_ENABLED = atoi(value);
+            config.CLONE_ENABLED = atoi(value);
         } else if (case_insensitive_compare(key, "CLONE_DEST_UDP_PORT")) {
-            CLONE_DEST_UDP_PORT = atoi(value);
+            config.CLONE_DEST_UDP_PORT = atoi(value);
         } else if (case_insensitive_compare(key, "CLONE_DEST_UDP_IP")) {
-            strncpy(CLONE_DEST_UDP_IP, value, sizeof(CLONE_DEST_UDP_IP) - 1);
-            CLONE_DEST_UDP_IP[sizeof(CLONE_DEST_UDP_IP) - 1] = '\0'; // Ensure null-termination
+            strncpy(config.CLONE_DEST_UDP_IP, value, sizeof(config.CLONE_DEST_UDP_IP) - 1);
+            config.CLONE_DEST_UDP_IP[sizeof(config.CLONE_DEST_UDP_IP) - 1] = '\0'; // Ensure null-termination
         } else if (case_insensitive_compare(key, "HTTP_ENABLED")) {
-            HTTP_ENABLED = atoi(value);
+            config.HTTP_ENABLED = atoi(value);
         } else if (case_insensitive_compare(key, "HTTP_PORT")) {
-            HTTP_PORT = atoi(value);
+            config.HTTP_PORT = atoi(value);
         } else if (case_insensitive_compare(key, "HTTP_LISTEN_IP")) {
-            strncpy(HTTP_LISTEN_IP, value, sizeof(HTTP_LISTEN_IP) - 1);
-            HTTP_LISTEN_IP[sizeof(HTTP_LISTEN_IP) - 1] = '\0'; // Ensure null-termination
+            strncpy(config.HTTP_LISTEN_IP, value, sizeof(config.HTTP_LISTEN_IP) - 1);
+            config.HTTP_LISTEN_IP[sizeof(config.HTTP_LISTEN_IP) - 1] = '\0'; // Ensure null-termination
         } else if (case_insensitive_compare(key, "OUTBOUND_UDP_TIMEOUT")) {
-            OUTBOUND_UDP_TIMEOUT = atoi(value);
+            config.OUTBOUND_UDP_TIMEOUT = atoi(value);
         }
     }
 
