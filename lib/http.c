@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 #include "logger.h"
+#include "config_reader.h"
 
 void *handle_request(void *client_sock) {
     int sock = *((int *)client_sock);
@@ -50,11 +51,11 @@ void *http_server(void *arg) {
     if (arg == NULL) {
         return NULL;
     }
-    if (HTTP_ENABLED == 0) {
+    if (config.HTTP_ENABLED == 0) {
         return NULL;
     }
     write_log("Starting HTTP server");
-    HttpConfig *config = (HttpConfig *)arg;
+    HttpConfig *conf = (HttpConfig *)arg;
 
     int sockfd, newsockfd;
     struct sockaddr_in serv_addr, cli_addr;
@@ -67,8 +68,8 @@ void *http_server(void *arg) {
     }
     bzero((char *)&serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(config->port);
-    inet_pton(AF_INET, config->ip_address, &(serv_addr.sin_addr));
+    serv_addr.sin_port = htons(conf->port);
+    inet_pton(AF_INET, conf->ip_address, &(serv_addr.sin_addr));
 
     if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         perror("bind failed");

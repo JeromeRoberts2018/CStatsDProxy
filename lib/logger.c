@@ -3,11 +3,12 @@
 #include <stdio.h>
 #include <pthread.h>
 #include "logger.h"
+#include "config_reader.h"
 
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void write_log(const char *format, ...) {
-    if (LOGGING_ENABLED == 0) {
+    if (config.LOGGING_ENABLED == 0) {
         return;
     }
     pthread_mutex_lock(&log_mutex);
