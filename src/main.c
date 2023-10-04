@@ -116,12 +116,12 @@ void *monitor_worker_threads(void *arg) {
 
 
 int main() {
-    write_log("Starting CStatsDProxy server: Version %s\n", VERSION);
-
     if (read_config("conf/config.conf") == -1) {
         write_log("Failed to read configuration");
         return 1;
     }
+    
+    write_log("Starting CStatsDProxy server: Version %s\n", VERSION);
 
     if (config.LOGGING_ENABLED) {
         write_log("Starting server on %s:%d", config.LISTEN_UDP_IP, config.UDP_PORT);
