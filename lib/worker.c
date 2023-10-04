@@ -156,10 +156,10 @@ void *worker_thread(void *arg) {
                     if (error_counter == 1) {
                         error_time = current_time;
                     }
-                    // I don't free here because it would cause segmentation fault
-                    // I think it's because the buffer is not allocated with some of the bad packets..
-                    // so this will cause memory leak, but I don't know how to fix it just yet.
                 }
+                free(buffer); //decided to add this back
+                // it was removed before but I think it was false positives
+                // for this creating segment faults.
             } else {
                 // Free the packet buffer if the send was successful.
                 free(buffer);
