@@ -52,6 +52,10 @@ struct WorkerArgs {
  * 
  * I am only doing UDP, as I am staying true currently to the original etsy code.
  * if TCP is added, it will have it's own worker threads.
+ * 
+ * This code is in all one big function for a reason, I found that when I broke
+ * it down into functions that the code was not as efficient. 
+ * 
  */
 
 void *worker_thread(void *arg) {
@@ -156,6 +160,10 @@ void *worker_thread(void *arg) {
                     if (error_counter == 1) {
                         error_time = current_time;
                     }
+                }
+                if (isMetricValid(buffer)) {
+                    // Requeue the packet if the send failed.
+                    injectPacket(buffer);
                 }
                 free(buffer); //decided to add this back
                 // it was removed before but I think it was false positives

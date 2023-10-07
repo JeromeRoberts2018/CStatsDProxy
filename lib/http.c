@@ -11,6 +11,11 @@
 #include "logger.h"
 #include "config_reader.h"
 
+#define MAX_THREADS 25
+volatile int active_threads = 0;
+pthread_mutex_t active_threads_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
 void *handle_request(void *client_sock) {
     int sock = *((int *)client_sock);
     free(client_sock);
@@ -42,7 +47,9 @@ void *handle_request(void *client_sock) {
     } else {
         write(sock, response404, sizeof(response404) - 1);
     }
-
+    pthread_mutex_lock(&active_threads_mutex);
+    active_threads--;
+    pthread_mutex_unlock(&active_threads_mutex);
     close(sock);
     return NULL;
 }
@@ -66,7 +73,7 @@ void *http_server(void *arg) {
         perror("socket creation failed");
         return NULL;
     }
-    bzero((char *)&serv_addr, sizeof(serv_addr));
+    memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(conf->port);
     inet_pton(AF_INET, conf->ip_address, &(serv_addr.sin_addr));
@@ -84,6 +91,13 @@ void *http_server(void *arg) {
     clilen = sizeof(cli_addr);
 
     while (1) {
+        pthread_mutex_lock(&active_threads_mutex);
+        if (active_threads >= MAX_THREADS) {
+            pthread_mutex_unlock(&active_threads_mutex);
+            usleep(1000);  // Sleep for a short duration before rechecking
+            continue;
+        }
+        pthread_mutex_unlock(&active_threads_mutex);
         newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
         if (newsockfd < 0) {
             perror("accept failed");
@@ -98,6 +112,9 @@ void *http_server(void *arg) {
             perror("could not create thread");
             return NULL;
         }
+        pthread_mutex_lock(&active_threads_mutex);
+        active_threads++;
+        pthread_mutex_unlock(&active_threads_mutex);    
         pthread_detach(client_thread);
     }
 
