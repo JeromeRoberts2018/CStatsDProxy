@@ -15,7 +15,7 @@
 #include "http.h"
 #include <sys/time.h>
 
-char VERSION[] = "0.9.6.1";
+char VERSION[] = "0.9.6.2";
 
 int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;

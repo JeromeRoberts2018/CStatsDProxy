@@ -43,6 +43,10 @@ void injectMetric(const char *metricName, int metricValue) {
     }
 }
 
+void injectPacket(const char *packet) {
+        enqueue(requeue, packet);
+}
+
 bool isMetricValid(const char *metric) {
     if (strlen(metric) >= 500) {
         return false;  // Too long
@@ -56,5 +60,25 @@ bool isMetricValid(const char *metric) {
         }
     }
 
+    return true;
+}
+
+bool is_safe_string(const char *str) {
+    // Define a whitelist of safe characters.
+    // You may need to adjust this list depending on your specific needs.
+    const char *whitelist = "abcdefghijklmnopqrstuvwxyz"
+                            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                            "0123456789"
+                            " .,;:!i?'\"()-%";
+    
+    // Loop through each character in the input string
+    for (int i = 0; i < strlen(str); i++) {
+        // Check if the character is NOT in the whitelist
+        if (strchr(whitelist, str[i]) == NULL) {
+            return false;
+        }
+    }
+
+    // All characters are in the whitelist, so the string is safe
     return true;
 }
