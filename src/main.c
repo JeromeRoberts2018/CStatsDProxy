@@ -15,7 +15,7 @@
 #include "http.h"
 #include <sys/time.h>
 
-char VERSION[] = "0.9.6.2";
+char VERSION[] = "0.9.6.3";
 
 int packet_counter = 0;
 pthread_mutex_t packet_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -189,10 +189,10 @@ int main() {
     
     int RoundRobinCounter = 0;
     while (1) {
-        char *buffer = malloc(config.MAX_MESSAGE_SIZE);
+        char *buffer = malloc(config.MAX_MESSAGE_SIZE + 1);
         struct sockaddr_in clientAddr;
         socklen_t addrSize = sizeof(clientAddr);
-        ssize_t recvLen = recvfrom(udpSocket, buffer, config.MAX_MESSAGE_SIZE - 1, 0, (struct sockaddr *)&clientAddr, &addrSize);
+        ssize_t recvLen = recvfrom(udpSocket, buffer, config.MAX_MESSAGE_SIZE, 0, (struct sockaddr *)&clientAddr, &addrSize);
 
         if (recvLen > 0) {
             buffer[recvLen] = '\0';

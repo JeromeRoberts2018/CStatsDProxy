@@ -61,8 +61,9 @@ int read_config(const char *filepath) {
             continue;
         }
 
-        char *key = strtok(line, "=");
-        char *value = strtok(NULL, "\n");
+        char *saveptr;  // Pointer to keep track of tokenization state
+        char *key = strtok_r(line, "=", &saveptr);  // key = "LISTEN_UDP_IP"
+        char *value = strtok_r(NULL, "=", &saveptr);  // value = "127.0.0.1"
 
         trim(key);
         trim(value);
