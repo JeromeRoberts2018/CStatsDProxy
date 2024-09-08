@@ -1,6 +1,6 @@
 # Output executable name
 TARGET = bin/CStatsDProxy
-INCLUDES = -I./ -I./lib
+INCLUDES = -I./ -I./lib -I./include
 BASE_DIR = ./
 DEFINES = -DBASE_DIR=\"$(BASE_DIR)\"
 

@@ -1,9 +1,9 @@
-#include "requeue.h"
+#include "../include/requeue.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
-#include "global.h"
+#include "../include/global.h"
 
 // Requeue is currently only being used to inject metrics into the worker threads
 // It is not being used to requeue packets that failed to send

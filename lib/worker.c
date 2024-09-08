@@ -5,11 +5,11 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <time.h>  // Include for time()
-#include "queue.h"
-#include "worker.h"
-#include "logger.h"
-#include "global.h"
-#include "config_reader.h"
+#include "../include/queue.h"
+#include "../include/worker.h"
+#include "../include/logger.h"
+#include "../include/global.h"
+#include "../include/config_reader.h"
 
 extern int CLONE_ENABLED;
 extern int CLONE_DEST_UDP_PORT;

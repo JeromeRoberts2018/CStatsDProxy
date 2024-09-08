@@ -2,8 +2,8 @@
 #include <stdarg.h>  // for va_list and related functions
 #include <stdio.h>
 #include <pthread.h>
-#include "logger.h"
-#include "config_reader.h"
+#include "../include/logger.h"
+#include "../include/config_reader.h"
 
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 

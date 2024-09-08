@@ -7,7 +7,7 @@
  * separated by an equal sign (=). Lines starting with '#' are ignored. The function returns 0 on
  * success and -1 on failure.
  */
-#include "config_reader.h"
+#include "../include/config_reader.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

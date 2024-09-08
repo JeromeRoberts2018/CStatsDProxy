@@ -1,4 +1,4 @@
-#include "http.h"
+#include "../include/http.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,8 +8,8 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include <arpa/inet.h>
-#include "logger.h"
-#include "config_reader.h"
+#include "../include/logger.h"
+#include "../include/config_reader.h"
 
 #define MAX_THREADS 25
 volatile int active_threads = 0;

@@ -8,8 +8,8 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "queue.h"
-#include "global.h"
+#include "../include/queue.h"
+#include "../include/global.h"
 #include <string.h>
 #include <stdbool.h>
 

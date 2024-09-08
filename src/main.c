@@ -6,13 +6,13 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <signal.h>
-#include "lib/queue.h"
-#include "lib/worker.h"
-#include "lib/logger.h"
-#include "lib/config_reader.h"
-#include "lib/requeue.h"
-#include "lib/global.h"
-#include "http.h"
+#include "include/queue.h"
+#include "include/worker.h"
+#include "include/logger.h"
+#include "include/config_reader.h"
+#include "include/requeue.h"
+#include "include/global.h"
+#include "include/http.h"
 #include <sys/time.h>
 
 char VERSION[] = "0.9.6.3";
