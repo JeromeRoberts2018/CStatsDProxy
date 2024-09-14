@@ -1,5 +1,5 @@
 #include <errno.h>
-#include <stdarg.h>  // for va_list and related functions
+#include <stdarg.h>
 #include <stdio.h>
 #include <pthread.h>
 #include "../include/logger.h"

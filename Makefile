@@ -1,6 +1,12 @@
-# Output executable name
+# Compiler and Linker
+CC = gcc
+LD = gcc
+
+# Target executable
 TARGET = bin/CStatsDProxy
-INCLUDES = -I./ -I./lib -I./include
+
+# Directories
+INCLUDES = -I./ -I./lib -I./include -I./third_party/Unity/src
 BASE_DIR = ./
 DEFINES = -DBASE_DIR=\"$(BASE_DIR)\"
 
@@ -11,23 +17,33 @@ INSTALL_DIR = /usr/sbin
 SRC = src/main.c lib/logger.c lib/config_reader.c lib/queue.c lib/worker.c lib/global.c lib/requeue.c lib/http.c
 OBJ = $(SRC:.c=.o)
 
-# Compiler and linker
-CC = gcc
-LD = gcc
+# Test files and objects
+TEST_SRC =  test/test_http.c test/test_runner.c test/test_logger.c test/test_global.c test/test_queue.c test/test_requeue.c test/test_config_reader.c third_party/Unity/src/unity.c
+TEST_OBJ = $(TEST_SRC:.c=.o)
 
-# Compiler and linker flags
+# Compiler flags
 CFLAGS = -Wall -c
+
+# Linker flags
 LDFLAGS = -lpthread
 
-# Build rules
+# Build the main target (your application)
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
 	$(LD) $(OBJ) -o $(TARGET) $(LDFLAGS)
 
+# Build object files from source
 %.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(DEFINES) -c $< -o $@
 
+# Run tests
+test: CFLAGS += -DTESTING -g
+test: $(TEST_OBJ) $(OBJ)
+	$(LD) $(TEST_OBJ) $(OBJ) -o test_runner $(LDFLAGS)
+	./test_runner $(ARGS)
+
+# Install the executable and set up necessary directories and permissions
 install: all
 	@if [ "$$(id -u)" -ne 0 ]; then \
 		echo "You must be root to install."; \
@@ -41,7 +57,9 @@ install: all
 	systemctl daemon-reload
 	systemctl enable CStatsDProxy
 
+# Clean all build and test files
 clean:
-	rm -f $(OBJ) $(TARGET)
+	rm -f $(OBJ) $(TEST_OBJ) $(TARGET) test_runner
 
-.PHONY: all clean install
+# Phony targets (to avoid naming conflicts with files)
+.PHONY: all clean test install

@@ -31,3 +31,7 @@ Thumbs.db  # Windows
 # Other files
 *.log
 *.tmp
+
+# Compiled output
+main
+test_runner

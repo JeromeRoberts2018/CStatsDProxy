@@ -20,11 +20,23 @@ static void trim(char *str) {
         return;
     }
 
-    char *end;
-    while (isspace((unsigned char)*str)) str++;
-    end = str + strlen(str) - 1;
-    while (end > str && isspace((unsigned char)*end)) end--;
-    *(end + 1) = 0;
+    // Remove leading whitespace
+    char *start = str;
+    while (isspace((unsigned char)*start)) start++;
+
+    // If the string is all spaces, set it to empty
+    if (*start == 0) {
+        str[0] = '\0';
+        return;
+    }
+
+    // Remove trailing whitespace and newlines
+    char *end = start + strlen(start) - 1;
+    while (end > start && (isspace((unsigned char)*end) || *end == '\n' || *end == '\r')) end--;
+    *(end + 1) = '\0';
+
+    // Shift the trimmed part to the beginning of the original string
+    memmove(str, start, strlen(start) + 1);
 }
 
 static int case_insensitive_compare(const char *str1, const char *str2) {

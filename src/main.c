@@ -64,7 +64,7 @@ int initialize_listener_udp_socket(const char *ip, int port, struct sockaddr_in 
     address->sin_family = AF_INET;
     address->sin_port = htons(port);
 
-    if (strcmp(ip, "0.0.0.0") == 0) {
+    if (ip == NULL || strcmp(ip, "") == 0 || strcmp(ip, "0.0.0.0") == 0) {
         address->sin_addr.s_addr = htonl(INADDR_ANY);
     } else {
         if (inet_pton(AF_INET, ip, &(address->sin_addr)) <= 0) {
@@ -114,7 +114,7 @@ void *monitor_worker_threads(void *arg) {
     return NULL;
 }
 
-
+#ifndef TESTING
 int main() {
     if (read_config("conf/config.conf") == -1) {
         write_log("Failed to read configuration");
@@ -134,6 +134,7 @@ int main() {
     HttpConfig conf;
     conf.port = config.HTTP_PORT;
     strncpy(conf.ip_address, config.HTTP_LISTEN_IP, sizeof(conf.ip_address));
+    conf.callback = NULL;
     pthread_t http_thread;
     if (pthread_create(&http_thread, NULL, http_server, (void *)&config) < 0) {
         write_log("could not create http server thread");
@@ -225,3 +226,4 @@ int main() {
 
     return 0;
 }
+#endif
